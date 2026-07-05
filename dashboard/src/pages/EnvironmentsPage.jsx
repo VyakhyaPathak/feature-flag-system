@@ -1,4 +1,7 @@
+import { useEnvironment } from "../context/EnvironmentContext";
+
 function EnvironmentsPage() {
-  return <h1>Environments Page (coming soon)</h1>;
+  const { environment } = useEnvironment();
+  return <h2>Environments Page — currently viewing: {environment}</h2>;
 }
 export default EnvironmentsPage;

@@ -1,4 +1,7 @@
+import { useEnvironment } from "../context/EnvironmentContext";
+
 function AuditLogPage() {
-  return <h1>Audit Log Page (coming soon)</h1>;
+  const { environment } = useEnvironment();
+  return <h2>Audit Log Page — currently viewing: {environment}</h2>;
 }
 export default AuditLogPage;

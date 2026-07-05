@@ -1,4 +1,11 @@
+import { useEnvironment } from "../context/EnvironmentContext";
+
 function FlagsPage() {
-  return <h1>Flags Page (coming soon)</h1>;
+  const { environment } = useEnvironment();
+  return (
+    <h2 style={{ lineHeight: "1.4" }}>
+      Flags Page — currently viewing: <span style={{ textTransform: "capitalize" }}>{environment}</span>
+    </h2>
+  );
 }
 export default FlagsPage;
