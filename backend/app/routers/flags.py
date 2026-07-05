@@ -63,3 +63,10 @@ def delete_flag(flag_id: int, db: Session = Depends(get_db)):
     db.delete(flag)
     db.commit()
     return {"message": "Flag deleted successfully"}
+from app.evaluation_engine import evaluate_flag
+
+
+@router.post("/evaluate")
+def evaluate(flag_key: str, environment_id: int, user_context: dict = None, db: Session = Depends(get_db)):
+    result = evaluate_flag(db, flag_key, environment_id, user_context)
+    return result

@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { useEnvironment } from "../context/EnvironmentContext";
+import FlagFormModal from "../components/FlagFormModal";
 
 function FlagsPage() {
   const { environment } = useEnvironment();
   const [flags, setFlags] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
+  const fetchFlags = () => {
     setLoading(true);
     fetch(`http://localhost:8000/flags/`)
       .then((res) => res.json())
@@ -18,6 +20,10 @@ function FlagsPage() {
         console.error("Failed to fetch flags:", err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchFlags();
   }, [environment]);
 
   if (loading) {
@@ -30,7 +36,10 @@ function FlagsPage() {
         <h2 className="text-2xl font-semibold text-gray-900 capitalize">
           Flags — {environment}
         </h2>
-        <button className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+        <button
+          onClick={() => setShowModal(true)}
+          className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+        >
           + Create Flag
         </button>
       </div>
@@ -72,6 +81,13 @@ function FlagsPage() {
           </tbody>
         </table>
       </div>
+
+      {showModal && (
+        <FlagFormModal
+          onClose={() => setShowModal(false)}
+          onFlagCreated={fetchFlags}
+        />
+      )}
     </div>
   );
 }
