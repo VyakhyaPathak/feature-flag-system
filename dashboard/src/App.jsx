@@ -10,17 +10,15 @@ function App() {
   return (
     <EnvironmentProvider>
       <BrowserRouter>
-        <div style={{ display: "flex" }}>
+        <div className="flex min-h-screen bg-gray-50">
           <Sidebar />
-          <div style={{ flex: 1 }}>
+          <div className="flex-1">
             <Navbar />
-            <div style={{ padding: "20px" }}>
-              <Routes>
-                <Route path="/flags" element={<FlagsPage />} />
-                <Route path="/environments" element={<EnvironmentsPage />} />
-                <Route path="/audit-log" element={<AuditLogPage />} />
-              </Routes>
-            </div>
+            <Routes>
+              <Route path="/flags" element={<FlagsPage />} />
+              <Route path="/environments" element={<EnvironmentsPage />} />
+              <Route path="/audit-log" element={<AuditLogPage />} />
+            </Routes>
           </div>
         </div>
       </BrowserRouter>
