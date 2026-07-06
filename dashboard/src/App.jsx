@@ -3,6 +3,7 @@ import { EnvironmentProvider } from "./context/EnvironmentContext";
 import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
 import FlagsPage from "./pages/FlagsPage";
+import FlagDetailPage from "./pages/FlagDetailPage";
 import EnvironmentsPage from "./pages/EnvironmentsPage";
 import AuditLogPage from "./pages/AuditLogPage";
 
@@ -16,6 +17,7 @@ function App() {
             <Navbar />
             <Routes>
               <Route path="/flags" element={<FlagsPage />} />
+              <Route path="/flags/:flagId" element={<FlagDetailPage />} />
               <Route path="/environments" element={<EnvironmentsPage />} />
               <Route path="/audit-log" element={<AuditLogPage />} />
             </Routes>

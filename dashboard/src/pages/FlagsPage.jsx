@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useEnvironment } from "../context/EnvironmentContext";
 import FlagFormModal from "../components/FlagFormModal";
 
 function FlagsPage() {
   const { environment } = useEnvironment();
+  const navigate = useNavigate();
   const [flags, setFlags] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -58,7 +60,8 @@ function FlagsPage() {
             {flags.map((flag) => (
               <tr
                 key={flag.id}
-                className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition"
+                onClick={() => navigate(`/flags/${flag.id}`)}
+                className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition cursor-pointer"
               >
                 <td className="px-6 py-4 text-gray-900 font-mono text-sm">{flag.key}</td>
                 <td className="px-6 py-4 text-gray-600 text-sm">{flag.type}</td>
