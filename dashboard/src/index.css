@@ -8,5 +8,43 @@ html, body, #root {
 }
 
 body {
-  background-color: #f9fafb;
+  background: linear-gradient(160deg, #f4f6fb 0%, #f7f2f7 50%, #faf4f8 100%);
+}
+
+:root {
+  --brand-1: #33539E;
+  --brand-2: #7FACD6;
+  --brand-3: #BFB8DA;
+  --brand-4: #E8B7D4;
+  --brand-5: #A5678E;
+}
+
+.brand-gradient {
+  background: linear-gradient(135deg, var(--brand-1), var(--brand-3) 50%, var(--brand-5));
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, var(--brand-1), var(--brand-5));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand-border-gradient {
+  border-image: linear-gradient(135deg, var(--brand-1), var(--brand-5)) 1;
+}
+
+.brand-card-1 {
+  background: linear-gradient(135deg, rgba(51, 83, 158, 0.06), rgba(127, 172, 214, 0.06));
+  border-color: rgba(51, 83, 158, 0.15);
+}
+
+.brand-card-2 {
+  background: linear-gradient(135deg, rgba(191, 184, 218, 0.15), rgba(232, 183, 212, 0.15));
+  border-color: rgba(191, 184, 218, 0.3);
+}
+
+.brand-card-3 {
+  background: linear-gradient(135deg, rgba(232, 183, 212, 0.15), rgba(165, 103, 142, 0.1));
+  border-color: rgba(165, 103, 142, 0.2);
 }

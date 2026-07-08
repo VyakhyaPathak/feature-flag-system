@@ -29,48 +29,62 @@ function FlagDetailPage() {
 
   return (
     <div className="p-6 max-w-2xl">
-      <Link to="/flags" className="text-indigo-600 text-sm hover:underline">
+      <Link to="/flags" className="text-sm hover:underline" style={{ color: "#33539E" }}>
         ← Back to Flags
       </Link>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-4 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 font-mono">{flag.key}</h2>
-          {flag.enabled ? (
-            <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-medium px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-              Enabled
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-medium px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-              Disabled
-            </span>
-          )}
-        </div>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-4 overflow-hidden">
+        <div
+          className="h-1"
+          style={{
+            background: "linear-gradient(135deg, #33539E, #BFB8DA 50%, #A5678E)",
+          }}
+        ></div>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 font-mono">{flag.key}</h2>
+            {flag.enabled ? (
+              <span
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: "rgba(127,172,214,0.15)", color: "#33539E" }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#33539E" }}></span>
+                Enabled
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: "rgba(165,103,142,0.12)", color: "#A5678E" }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#A5678E" }}></span>
+                Disabled
+              </span>
+            )}
+          </div>
 
-        <dl className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-gray-500">Type</dt>
-            <dd className="text-gray-900 mt-1">{flag.type}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Default Value</dt>
-            <dd className="text-gray-900 mt-1">{String(flag.default_value)}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Owner Team</dt>
-            <dd className="text-gray-900 mt-1">{flag.owner_team || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Environment ID</dt>
-            <dd className="text-gray-900 mt-1">{flag.environment_id}</dd>
-          </div>
-          <div className="col-span-2">
-            <dt className="text-gray-500">Description</dt>
-            <dd className="text-gray-900 mt-1">{flag.description || "No description provided"}</dd>
-          </div>
-        </dl>
+          <dl className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <dt className="text-gray-500">Type</dt>
+              <dd className="text-gray-900 mt-1">{flag.type}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Default Value</dt>
+              <dd className="text-gray-900 mt-1">{String(flag.default_value)}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Owner Team</dt>
+              <dd className="text-gray-900 mt-1">{flag.owner_team || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Environment ID</dt>
+              <dd className="text-gray-900 mt-1">{flag.environment_id}</dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-gray-500">Description</dt>
+              <dd className="text-gray-900 mt-1">{flag.description || "No description provided"}</dd>
+            </div>
+          </dl>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-4 p-6">
