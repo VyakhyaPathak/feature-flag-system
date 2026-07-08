@@ -3,6 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useEnvironment } from "../context/EnvironmentContext";
 import FlagFormModal from "../components/FlagFormModal";
 
+const environmentIdMap = {
+  development: 1,
+  staging: 2,
+  production: 3,
+};
+
 function FlagsPage() {
   const { environment } = useEnvironment();
   const navigate = useNavigate();
@@ -12,7 +18,8 @@ function FlagsPage() {
 
   const fetchFlags = () => {
     setLoading(true);
-    fetch(`http://localhost:8000/flags/`)
+    const environmentId = environmentIdMap[environment];
+    fetch(`http://localhost:8000/flags/?environment_id=${environmentId}`)
       .then((res) => res.json())
       .then((data) => {
         setFlags(data);
@@ -57,30 +64,38 @@ function FlagsPage() {
             </tr>
           </thead>
           <tbody>
-            {flags.map((flag) => (
-              <tr
-                key={flag.id}
-                onClick={() => navigate(`/flags/${flag.id}`)}
-                className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition cursor-pointer"
-              >
-                <td className="px-6 py-4 text-gray-900 font-mono text-sm">{flag.key}</td>
-                <td className="px-6 py-4 text-gray-600 text-sm">{flag.type}</td>
-                <td className="px-6 py-4">
-                  {flag.enabled ? (
-                    <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-medium px-2.5 py-1 rounded-full">
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                      Enabled
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-medium px-2.5 py-1 rounded-full">
-                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                      Disabled
-                    </span>
-                  )}
+            {flags.length === 0 ? (
+              <tr>
+                <td colSpan="4" className="px-6 py-8 text-center text-gray-400 text-sm">
+                  No flags in this environment yet. Click "+ Create Flag" to add one.
                 </td>
-                <td className="px-6 py-4 text-gray-600 text-sm">{flag.owner_team}</td>
               </tr>
-            ))}
+            ) : (
+              flags.map((flag) => (
+                <tr
+                  key={flag.id}
+                  onClick={() => navigate(`/flags/${flag.id}`)}
+                  className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition cursor-pointer"
+                >
+                  <td className="px-6 py-4 text-gray-900 font-mono text-sm">{flag.key}</td>
+                  <td className="px-6 py-4 text-gray-600 text-sm">{flag.type}</td>
+                  <td className="px-6 py-4">
+                    {flag.enabled ? (
+                      <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-medium px-2.5 py-1 rounded-full">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                        Enabled
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-medium px-2.5 py-1 rounded-full">
+                        <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                        Disabled
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 text-sm">{flag.owner_team}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

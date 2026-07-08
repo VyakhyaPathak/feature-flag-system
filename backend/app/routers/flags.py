@@ -8,6 +8,13 @@ router = APIRouter(prefix="/flags", tags=["Flags"])
 
 @router.post("/", response_model=schemas.FlagResponse)
 def create_flag(flag: schemas.FlagCreate, db: Session = Depends(get_db)):
+    # Validate environment exists
+    environment = db.query(models.Environment).filter(
+        models.Environment.id == flag.environment_id
+    ).first()
+    if not environment:
+        raise HTTPException(status_code=400, detail=f"Environment with id {flag.environment_id} does not exist")
+
     # Check for duplicate key in the same environment
     existing = db.query(models.Flag).filter(
         models.Flag.key == flag.key,
@@ -21,7 +28,6 @@ def create_flag(flag: schemas.FlagCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_flag)
     return new_flag
-
 
 @router.get("/", response_model=list[schemas.FlagResponse])
 def list_flags(environment_id: int | None = None, db: Session = Depends(get_db)):

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, Any
 from datetime import datetime
 
@@ -11,6 +11,21 @@ class FlagBase(BaseModel):
     enabled: bool = False
     description: Optional[str] = None
     owner_team: Optional[str] = None
+
+    @field_validator("key")
+    @classmethod
+    def key_must_not_be_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Flag key cannot be empty")
+        return v.strip()
+
+    @field_validator("type")
+    @classmethod
+    def type_must_be_valid(cls, v):
+        allowed = {"boolean", "string", "number"}
+        if v not in allowed:
+            raise ValueError(f"Type must be one of {allowed}")
+        return v
 
 
 class FlagCreate(FlagBase):
