@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
+import FlagFormModal from "../components/FlagFormModal";
 
 function FlagDetailPage() {
   const { flagId } = useParams();
   const [flag, setFlag] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
-  useEffect(() => {
+  const fetchFlag = () => {
     setLoading(true);
     fetch(`http://localhost:8000/flags/${flagId}`)
       .then((res) => {
@@ -22,6 +24,10 @@ function FlagDetailPage() {
         setError(err.message);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchFlag();
   }, [flagId]);
 
   if (loading) return <p className="text-gray-500 p-6">Loading flag details...</p>;
@@ -36,30 +42,37 @@ function FlagDetailPage() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-4 overflow-hidden">
         <div
           className="h-1"
-          style={{
-            background: "linear-gradient(135deg, #33539E, #BFB8DA 50%, #A5678E)",
-          }}
+          style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
         ></div>
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900 font-mono">{flag.key}</h2>
-            {flag.enabled ? (
-              <span
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
-                style={{ backgroundColor: "rgba(127,172,214,0.15)", color: "#33539E" }}
+            <div className="flex items-center gap-3">
+              {flag.enabled ? (
+                <span
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                  style={{ backgroundColor: "rgba(127,172,214,0.15)", color: "#33539E" }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#33539E" }}></span>
+                  Enabled
+                </span>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                  style={{ backgroundColor: "rgba(165,103,142,0.12)", color: "#A5678E" }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#A5678E" }}></span>
+                  Disabled
+                </span>
+              )}
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition"
+                style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
               >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#33539E" }}></span>
-                Enabled
-              </span>
-            ) : (
-              <span
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
-                style={{ backgroundColor: "rgba(165,103,142,0.12)", color: "#A5678E" }}
-              >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#A5678E" }}></span>
-                Disabled
-              </span>
-            )}
+                Edit Flag
+              </button>
+            </div>
           </div>
 
           <dl className="grid grid-cols-2 gap-4 text-sm">
@@ -93,6 +106,14 @@ function FlagDetailPage() {
           Coming in Milestone 2 — user targeting, group targeting, and percentage rollout rules will appear here.
         </p>
       </div>
+
+      {showEditModal && (
+        <FlagFormModal
+          existingFlag={flag}
+          onClose={() => setShowEditModal(false)}
+          onFlagCreated={fetchFlag}
+        />
+      )}
     </div>
   );
 }

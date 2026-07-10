@@ -7,14 +7,16 @@ const environmentIdMap = {
   production: 3,
 };
 
-function FlagFormModal({ onClose, onFlagCreated }) {
+function FlagFormModal({ onClose, onFlagCreated, existingFlag = null }) {
   const { environment } = useEnvironment();
-  const [key, setKey] = useState("");
-  const [type, setType] = useState("boolean");
-  const [defaultValue, setDefaultValue] = useState(false);
-  const [enabled, setEnabled] = useState(false);
-  const [description, setDescription] = useState("");
-  const [ownerTeam, setOwnerTeam] = useState("");
+  const isEditMode = existingFlag !== null;
+
+  const [key, setKey] = useState(existingFlag?.key || "");
+  const [type, setType] = useState(existingFlag?.type || "boolean");
+  const [defaultValue, setDefaultValue] = useState(existingFlag?.default_value ?? false);
+  const [enabled, setEnabled] = useState(existingFlag?.enabled || false);
+  const [description, setDescription] = useState(existingFlag?.description || "");
+  const [ownerTeam, setOwnerTeam] = useState(existingFlag?.owner_team || "");
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -24,23 +26,38 @@ function FlagFormModal({ onClose, onFlagCreated }) {
     setError(null);
 
     try {
-      const response = await fetch("http://localhost:8000/flags/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key,
-          environment_id: environmentIdMap[environment],
-          type,
-          default_value: defaultValue,
-          enabled,
-          description,
-          owner_team: ownerTeam,
-        }),
-      });
+      let response;
+      if (isEditMode) {
+        response = await fetch(`http://localhost:8000/flags/${existingFlag.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type,
+            default_value: defaultValue,
+            enabled,
+            description,
+            owner_team: ownerTeam,
+          }),
+        });
+      } else {
+        response = await fetch("http://localhost:8000/flags/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key,
+            environment_id: environmentIdMap[environment],
+            type,
+            default_value: defaultValue,
+            enabled,
+            description,
+            owner_team: ownerTeam,
+          }),
+        });
+      }
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.detail || "Failed to create flag");
+        throw new Error(errData.detail || `Failed to ${isEditMode ? "update" : "create"} flag`);
       }
 
       onFlagCreated();
@@ -60,10 +77,12 @@ function FlagFormModal({ onClose, onFlagCreated }) {
       <div className="bg-white rounded-xl shadow-lg w-full max-w-md overflow-hidden">
         <div
           className="h-1"
-          style={{ background: "linear-gradient(135deg, #33539E, #BFB8DA 50%, #A5678E)" }}
+          style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
         ></div>
         <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Create Flag</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            {isEditMode ? "Edit Flag" : "Create Flag"}
+          </h3>
 
           {error && (
             <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg mb-4">
@@ -82,8 +101,12 @@ function FlagFormModal({ onClose, onFlagCreated }) {
                 onBlur={blurStyle}
                 placeholder="e.g. ai_photo_editor"
                 required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                disabled={isEditMode}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-gray-500"
               />
+              {isEditMode && (
+                <p className="text-xs text-gray-400 mt-1">Key cannot be changed after creation.</p>
+              )}
             </div>
 
             <div>
@@ -158,9 +181,9 @@ function FlagFormModal({ onClose, onFlagCreated }) {
                 type="submit"
                 disabled={submitting}
                 className="px-4 py-2 text-sm text-white rounded-lg transition disabled:opacity-50 hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #33539E, #A5678E)" }}
+                style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
               >
-                {submitting ? "Creating..." : "Create Flag"}
+                {submitting ? "Saving..." : isEditMode ? "Save Changes" : "Create Flag"}
               </button>
             </div>
           </form>

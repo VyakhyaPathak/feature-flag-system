@@ -15,7 +15,7 @@ function Sidebar() {
       className="w-60 min-h-screen p-5 flex flex-col"
       style={{
         background:
-          "linear-gradient(160deg, #33539E 0%, #7FACD6 45%, #BFB8DA 75%, #A5678E 100%)",
+          "linear-gradient(160deg, #33539E 0%, #A5678E 100%)",
       }}
     >
       <div className="flex items-center gap-3 mb-1 px-1">
