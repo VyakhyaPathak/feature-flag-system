@@ -63,7 +63,7 @@ function FlagsPage() {
         message: `${flag.key} ${newEnabled ? "enabled" : "disabled"}`,
       });
     } catch (err) {
-      setToast({ type: "error", message: "Failed to update flag" });
+      setToast({ type: "error", message: err.message || "Failed to update flag" });
     }
   };
 

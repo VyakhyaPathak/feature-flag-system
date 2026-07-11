@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import Optional
 from app.database import get_db
 from app import models, schemas
+from app.evaluation_engine import evaluate_flag
 
 router = APIRouter(prefix="/flags", tags=["Flags"])
 
@@ -25,7 +27,11 @@ def create_flag(flag: schemas.FlagCreate, db: Session = Depends(get_db)):
 
     new_flag = models.Flag(**flag.model_dump())
     db.add(new_flag)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to save flag due to a database error")
     db.refresh(new_flag)
     return new_flag
 
@@ -55,7 +61,11 @@ def update_flag(flag_id: int, flag_update: schemas.FlagUpdate, db: Session = Dep
     for field, value in update_data.items():
         setattr(flag, field, value)
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update flag due to a database error")
     db.refresh(flag)
     return flag
 
@@ -66,13 +76,27 @@ def delete_flag(flag_id: int, db: Session = Depends(get_db)):
     if not flag:
         raise HTTPException(status_code=404, detail="Flag not found")
 
-    db.delete(flag)
-    db.commit()
+    try:
+        db.delete(flag)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to delete flag due to a database error")
     return {"message": "Flag deleted successfully"}
-from app.evaluation_engine import evaluate_flag
 
 
 @router.post("/evaluate")
-def evaluate(flag_key: str, environment_id: int, user_context: dict = None, db: Session = Depends(get_db)):
-    result = evaluate_flag(db, flag_key, environment_id, user_context)
+def evaluate(
+    flag_key: str,
+    environment_id: int,
+    user_context: Optional[dict] = None,
+    db: Session = Depends(get_db),
+):
+    try:
+        result = evaluate_flag(db, flag_key, environment_id, user_context)
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to evaluate flag due to an internal error",
+        )
     return result

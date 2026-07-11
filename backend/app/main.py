@@ -1,10 +1,14 @@
-#from fastapi import FastAPI
-from sqlalchemy import text  # <- Add this import
-from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import logging
 from app.routers import flags
 from app.database import get_db
 from app.redis_client import redis_client
+
+logger = logging.getLogger("feature_flag_system")
 
 app = FastAPI(title="Feature Flag Management System")
 
@@ -19,9 +23,24 @@ app.add_middleware(
 app.include_router(flags.router)
 
 
-@app.get("/health")
-#def health_check():
-    #return {"status": "ok"}
+# Global safety net: any exception we did NOT anticipate (DB connection drop,
+# a bug, Redis being down mid-request, etc.) is caught here so the API always
+# returns clean JSON instead of crashing the process or leaking a raw
+# traceback to the client. Expected errors (404, 400, 422) are unaffected —
+# those are still raised as HTTPException/validation errors in the routers
+# and handled by FastAPI's normal flow before ever reaching this handler.
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Something went wrong on our end. Please try again, and contact support if it keeps happening.",
+            "error_type": type(exc).__name__,
+        },
+    )
+
+
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
     health_status = {
