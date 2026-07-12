@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { EnvironmentProvider } from "./context/EnvironmentContext";
 import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
@@ -16,6 +16,7 @@ function App() {
           <div className="flex-1">
             <Navbar />
             <Routes>
+              <Route path="/" element={<Navigate to="/flags" replace />} />
               <Route path="/flags" element={<FlagsPage />} />
               <Route path="/flags/:flagId" element={<FlagDetailPage />} />
               <Route path="/environments" element={<EnvironmentsPage />} />

@@ -1,10 +1,5 @@
 import { Layers } from "lucide-react";
-
-const environments = [
-  { name: "Development", id: 1, color: "#33539E" },
-  { name: "Staging", id: 2, color: "#BFB8DA" },
-  { name: "Production", id: 3, color: "#A5678E" },
-];
+import { ENVIRONMENTS } from "../constants/environments";
 
 function EnvironmentsPage() {
   return (
@@ -12,7 +7,7 @@ function EnvironmentsPage() {
       <h2 className="text-2xl font-semibold brand-gradient-text mb-6">Environments</h2>
 
       <div className="grid grid-cols-3 gap-4">
-        {environments.map((env) => (
+        {ENVIRONMENTS.map((env) => (
           <div
             key={env.id}
             className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
@@ -26,7 +21,7 @@ function EnvironmentsPage() {
                 <Layers size={18} style={{ color: env.color }} />
               </div>
               <div>
-                <p className="font-semibold text-gray-900">{env.name}</p>
+                <p className="font-semibold text-gray-900">{env.label}</p>
                 <p className="text-xs text-gray-400">ID: {env.id}</p>
               </div>
             </div>

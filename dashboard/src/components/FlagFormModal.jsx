@@ -1,17 +1,42 @@
 import { useState } from "react";
 import { useEnvironment } from "../context/EnvironmentContext";
+import { environmentIdForValue, ENVIRONMENT_ID_OPTIONS } from "../constants/environments";
+import Dropdown from "./Dropdown";
 
-const environmentIdMap = {
-  development: 1,
-  staging: 2,
-  production: 3,
-};
+const TYPE_OPTIONS = [
+  { value: "boolean", label: "Boolean" },
+  { value: "string", label: "String" },
+  { value: "number", label: "Number" },
+];
+
+// FastAPI returns errors in two different shapes:
+//  - 400/404/500 from our own routes: { detail: "some readable string" }
+//  - 422 from Pydantic validation:    { detail: [{ loc, msg, type, ... }, ...] }
+// This turns either shape into one plain, readable sentence for the UI.
+function extractErrorMessage(errData, isEditMode) {
+  const fallback = `Failed to ${isEditMode ? "update" : "create"} flag`;
+  if (!errData || !errData.detail) return fallback;
+  if (typeof errData.detail === "string") return errData.detail;
+  if (Array.isArray(errData.detail)) {
+    const messages = errData.detail
+      .map((e) => {
+        const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : null;
+        return field ? `${field}: ${e.msg}` : e.msg;
+      })
+      .filter(Boolean);
+    return messages.length ? messages.join("; ") : fallback;
+  }
+  return fallback;
+}
 
 function FlagFormModal({ onClose, onFlagCreated, existingFlag = null }) {
   const { environment } = useEnvironment();
   const isEditMode = existingFlag !== null;
 
   const [key, setKey] = useState(existingFlag?.key || "");
+  const [environmentId, setEnvironmentId] = useState(
+    existingFlag?.environment_id ?? environmentIdForValue(environment)
+  );
   const [type, setType] = useState(existingFlag?.type || "boolean");
   const [defaultValue, setDefaultValue] = useState(existingFlag?.default_value ?? false);
   const [enabled, setEnabled] = useState(existingFlag?.enabled || false);
@@ -45,7 +70,7 @@ function FlagFormModal({ onClose, onFlagCreated, existingFlag = null }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             key,
-            environment_id: environmentIdMap[environment],
+            environment_id: environmentId,
             type,
             default_value: defaultValue,
             enabled,
@@ -56,8 +81,8 @@ function FlagFormModal({ onClose, onFlagCreated, existingFlag = null }) {
       }
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || `Failed to ${isEditMode ? "update" : "create"} flag`);
+        const errData = await response.json().catch(() => null);
+        throw new Error(extractErrorMessage(errData, isEditMode));
       }
 
       onFlagCreated();
@@ -110,18 +135,21 @@ function FlagFormModal({ onClose, onFlagCreated, existingFlag = null }) {
             </div>
 
             <div>
+              <label className="block text-sm text-gray-600 mb-1">Environment</label>
+              <Dropdown
+                value={environmentId}
+                options={ENVIRONMENT_ID_OPTIONS}
+                onChange={(val) => setEnvironmentId(val)}
+                disabled={isEditMode}
+              />
+              {isEditMode && (
+                <p className="text-xs text-gray-400 mt-1">Environment cannot be changed after creation.</p>
+              )}
+            </div>
+
+            <div>
               <label className="block text-sm text-gray-600 mb-1">Type</label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                onFocus={focusStyle}
-                onBlur={blurStyle}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-              >
-                <option value="boolean">Boolean</option>
-                <option value="string">String</option>
-                <option value="number">Number</option>
-              </select>
+              <Dropdown value={type} options={TYPE_OPTIONS} onChange={(val) => setType(val)} />
             </div>
 
             <div>
@@ -150,20 +178,54 @@ function FlagFormModal({ onClose, onFlagCreated, existingFlag = null }) {
               />
             </div>
 
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-600">Default Value</label>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: defaultValue ? "#33539E" : "#9ca3af" }}
+                  >
+                    {String(defaultValue)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDefaultValue(!defaultValue)}
+                    className="w-11 h-6 rounded-full transition"
+                    style={{ backgroundColor: defaultValue ? "#33539E" : "#d1d5db" }}
+                  >
+                    <span
+                      className={`block w-5 h-5 bg-white rounded-full shadow transform transition ${
+                        defaultValue ? "translate-x-5" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between">
               <label className="text-sm text-gray-600">Enabled</label>
-              <button
-                type="button"
-                onClick={() => setEnabled(!enabled)}
-                className="w-11 h-6 rounded-full transition"
-                style={{ backgroundColor: enabled ? "#33539E" : "#d1d5db" }}
-              >
+              <div className="flex items-center gap-2">
                 <span
-                  className={`block w-5 h-5 bg-white rounded-full shadow transform transition ${
-                    enabled ? "translate-x-5" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
+                  className="text-xs font-medium"
+                  style={{ color: enabled ? "#33539E" : "#9ca3af" }}
+                >
+                  {enabled ? "Yes" : "No"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEnabled(!enabled)}
+                  className="w-11 h-6 rounded-full transition"
+                  style={{ backgroundColor: enabled ? "#33539E" : "#d1d5db" }}
+                >
+                  <span
+                    className={`block w-5 h-5 bg-white rounded-full shadow transform transition ${
+                      enabled ? "translate-x-5" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

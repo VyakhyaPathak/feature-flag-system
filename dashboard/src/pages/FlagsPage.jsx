@@ -3,33 +3,39 @@ import { useNavigate } from "react-router-dom";
 import { useEnvironment } from "../context/EnvironmentContext";
 import FlagFormModal from "../components/FlagFormModal";
 import { ToggleRight, ToggleLeft, ListChecks, Search } from "lucide-react";
-
-const environmentIdMap = {
-  development: 1,
-  staging: 2,
-  production: 3,
-};
+import { environmentIdForValue } from "../constants/environments";
 
 function FlagsPage() {
   const { environment } = useEnvironment();
   const navigate = useNavigate();
   const [flags, setFlags] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState(null);
 
   const fetchFlags = () => {
     setLoading(true);
-    const environmentId = environmentIdMap[environment];
+    setFetchError(null);
+    const environmentId = environmentIdForValue(environment);
     fetch(`http://localhost:8000/flags/?environment_id=${environmentId}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          const message =
+            typeof data?.detail === "string" ? data.detail : "Failed to load flags";
+          throw new Error(message);
+        }
+        return data;
+      })
       .then((data) => {
-        setFlags(data);
+        setFlags(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to fetch flags:", err);
+        setFetchError(err.message || "Failed to load flags");
+        setFlags([]);
         setLoading(false);
       });
   };
@@ -69,6 +75,22 @@ function FlagsPage() {
 
   if (loading) {
     return <p className="text-gray-500 p-6">Loading flags...</p>;
+  }
+
+  if (fetchError) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-lg flex items-center justify-between">
+          <span>{fetchError}</span>
+          <button
+            onClick={fetchFlags}
+            className="text-red-700 font-medium underline hover:no-underline"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const filteredFlags = flags.filter((f) =>

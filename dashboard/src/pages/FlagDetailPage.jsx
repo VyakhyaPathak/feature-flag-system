@@ -1,9 +1,13 @@
-import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import FlagFormModal from "../components/FlagFormModal";
+import { environmentById } from "../constants/environments";
+import { useEnvironment } from "../context/EnvironmentContext";
 
 function FlagDetailPage() {
   const { flagId } = useParams();
+  const navigate = useNavigate();
+  const { environment } = useEnvironment();
   const [flag, setFlag] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,10 +15,15 @@ function FlagDetailPage() {
 
   const fetchFlag = () => {
     setLoading(true);
+    setError(null);
     fetch(`http://localhost:8000/flags/${flagId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Flag not found");
-        return res.json();
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          const message = typeof data?.detail === "string" ? data.detail : "Failed to load this flag";
+          throw new Error(message);
+        }
+        return data;
       })
       .then((data) => {
         setFlag(data);
@@ -28,7 +37,30 @@ function FlagDetailPage() {
 
   useEffect(() => {
     fetchFlag();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flagId]);
+
+  // A flag's detail page is tied to one specific flag ID, which belongs to
+  // exactly one environment - it can't "switch" in place. So if the person
+  // changes the environment switcher while viewing a flag, send them back to
+  // the (environment-aware) Flags list instead of leaving this page showing
+  // stale data for the environment they just left.
+  //
+  // Note: we compare against the *previous actual value* rather than a
+  // simple "is this the first render" boolean. React's StrictMode
+  // (see main.jsx) intentionally runs effects twice on mount in development;
+  // a boolean ref gets flipped by the first pass and then wrongly reads as
+  // "changed" on the second pass, triggering a false redirect back to
+  // /flags immediately after opening a flag. Comparing actual values is
+  // immune to that, since the environment hasn't really changed between
+  // those two passes.
+  const previousEnvironmentRef = useRef(environment);
+  useEffect(() => {
+    if (previousEnvironmentRef.current !== environment) {
+      navigate("/flags");
+    }
+    previousEnvironmentRef.current = environment;
+  }, [environment, navigate]);
 
   if (loading) return <p className="text-gray-500 p-6">Loading flag details...</p>;
   if (error) return <p className="text-red-600 p-6">{error}</p>;
@@ -89,8 +121,23 @@ function FlagDetailPage() {
               <dd className="text-gray-900 mt-1">{flag.owner_team || "—"}</dd>
             </div>
             <div>
-              <dt className="text-gray-500">Environment ID</dt>
-              <dd className="text-gray-900 mt-1">{flag.environment_id}</dd>
+              <dt className="text-gray-500">Environment</dt>
+              <dd className="mt-1">
+                {(() => {
+                  const env = environmentById(flag.environment_id);
+                  return (
+                    <span
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                      style={{
+                        backgroundColor: env ? `${env.color}20` : "#e5e7eb",
+                        color: env ? env.color : "#374151",
+                      }}
+                    >
+                      {env ? env.label : `Unknown (id ${flag.environment_id})`}
+                    </span>
+                  );
+                })()}
+              </dd>
             </div>
             <div className="col-span-2">
               <dt className="text-gray-500">Description</dt>
