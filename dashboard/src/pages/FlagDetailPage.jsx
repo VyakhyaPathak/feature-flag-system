@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import FlagFormModal from "../components/FlagFormModal";
 import { environmentById } from "../constants/environments";
 import { useEnvironment } from "../context/EnvironmentContext";
+import { getErrorMessage } from "../utils/apiErrors";
+import { capitalize } from "../utils/format";
 
 function FlagDetailPage() {
   const { flagId } = useParams();
@@ -19,10 +21,7 @@ function FlagDetailPage() {
     fetch(`http://localhost:8000/flags/${flagId}`)
       .then(async (res) => {
         const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          const message = typeof data?.detail === "string" ? data.detail : "Failed to load this flag";
-          throw new Error(message);
-        }
+        if (!res.ok) throw new Error(getErrorMessage(data, "Failed to load this flag"));
         return data;
       })
       .then((data) => {
@@ -110,11 +109,11 @@ function FlagDetailPage() {
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-gray-500">Type</dt>
-              <dd className="text-gray-900 mt-1">{flag.type}</dd>
+              <dd className="text-gray-900 mt-1">{capitalize(flag.type)}</dd>
             </div>
             <div>
               <dt className="text-gray-500">Default Value</dt>
-              <dd className="text-gray-900 mt-1">{String(flag.default_value)}</dd>
+              <dd className="text-gray-900 mt-1">{flag.default_value ? "True" : "False"}</dd>
             </div>
             <div>
               <dt className="text-gray-500">Owner Team</dt>

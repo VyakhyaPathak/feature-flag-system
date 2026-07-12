@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { environmentIdForValue, ENVIRONMENT_ID_OPTIONS } from "../constants/environments";
+import { getErrorMessage } from "../utils/apiErrors";
 import Dropdown from "./Dropdown";
 
 const TYPE_OPTIONS = [
@@ -8,26 +9,6 @@ const TYPE_OPTIONS = [
   { value: "string", label: "String" },
   { value: "number", label: "Number" },
 ];
-
-// FastAPI returns errors in two different shapes:
-//  - 400/404/500 from our own routes: { detail: "some readable string" }
-//  - 422 from Pydantic validation:    { detail: [{ loc, msg, type, ... }, ...] }
-// This turns either shape into one plain, readable sentence for the UI.
-function extractErrorMessage(errData, isEditMode) {
-  const fallback = `Failed to ${isEditMode ? "update" : "create"} flag`;
-  if (!errData || !errData.detail) return fallback;
-  if (typeof errData.detail === "string") return errData.detail;
-  if (Array.isArray(errData.detail)) {
-    const messages = errData.detail
-      .map((e) => {
-        const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : null;
-        return field ? `${field}: ${e.msg}` : e.msg;
-      })
-      .filter(Boolean);
-    return messages.length ? messages.join("; ") : fallback;
-  }
-  return fallback;
-}
 
 function FlagFormModal({ onClose, onFlagCreated, existingFlag = null }) {
   const { environment } = useEnvironment();
@@ -82,7 +63,9 @@ function FlagFormModal({ onClose, onFlagCreated, existingFlag = null }) {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => null);
-        throw new Error(extractErrorMessage(errData, isEditMode));
+        throw new Error(
+          getErrorMessage(errData, `Failed to ${isEditMode ? "update" : "create"} flag`)
+        );
       }
 
       onFlagCreated();
@@ -186,7 +169,7 @@ function FlagFormModal({ onClose, onFlagCreated, existingFlag = null }) {
                     className="text-xs font-medium"
                     style={{ color: defaultValue ? "#33539E" : "#9ca3af" }}
                   >
-                    {String(defaultValue)}
+                    {defaultValue ? "True" : "False"}
                   </span>
                   <button
                     type="button"

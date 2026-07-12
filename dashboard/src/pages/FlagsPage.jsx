@@ -2,8 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEnvironment } from "../context/EnvironmentContext";
 import FlagFormModal from "../components/FlagFormModal";
-import { ToggleRight, ToggleLeft, ListChecks, Search } from "lucide-react";
+import ConfirmDialog from "../components/ConfirmDialog";
+import { ToggleRight, ToggleLeft, ListChecks, Search, Trash2 } from "lucide-react";
 import { environmentIdForValue } from "../constants/environments";
+import { getErrorMessage } from "../utils/apiErrors";
+import { capitalize } from "../utils/format";
 
 function FlagsPage() {
   const { environment } = useEnvironment();
@@ -14,6 +17,8 @@ function FlagsPage() {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchFlags = () => {
     setLoading(true);
@@ -22,11 +27,7 @@ function FlagsPage() {
     fetch(`http://localhost:8000/flags/?environment_id=${environmentId}`)
       .then(async (res) => {
         const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          const message =
-            typeof data?.detail === "string" ? data.detail : "Failed to load flags";
-          throw new Error(message);
-        }
+        if (!res.ok) throw new Error(getErrorMessage(data, "Failed to load flags"));
         return data;
       })
       .then((data) => {
@@ -60,7 +61,10 @@ function FlagsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: newEnabled }),
       });
-      if (!res.ok) throw new Error("Failed to update flag");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(getErrorMessage(errData, "Failed to update flag"));
+      }
       setFlags((prev) =>
         prev.map((f) => (f.id === flag.id ? { ...f, enabled: newEnabled } : f))
       );
@@ -70,6 +74,27 @@ function FlagsPage() {
       });
     } catch (err) {
       setToast({ type: "error", message: err.message || "Failed to update flag" });
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`http://localhost:8000/flags/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(getErrorMessage(errData, "Failed to delete flag"));
+      }
+      setFlags((prev) => prev.filter((f) => f.id !== deleteTarget.id));
+      setToast({ type: "success", message: `${deleteTarget.key} deleted` });
+      setDeleteTarget(null);
+    } catch (err) {
+      setToast({ type: "error", message: err.message || "Failed to delete flag" });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -166,12 +191,13 @@ function FlagsPage() {
               <th className="px-6 py-3 font-medium">Type</th>
               <th className="px-6 py-3 font-medium">Status</th>
               <th className="px-6 py-3 font-medium">Owner</th>
+              <th className="px-6 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredFlags.length === 0 ? (
               <tr>
-                <td colSpan="4" className="px-6 py-8 text-center text-gray-400 text-sm">
+                <td colSpan="5" className="px-6 py-8 text-center text-gray-400 text-sm">
                   {flags.length === 0
                     ? 'No flags in this environment yet. Click "+ Create Flag" to add one.'
                     : "No flags match your search."}
@@ -185,7 +211,7 @@ function FlagsPage() {
                   className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition cursor-pointer"
                 >
                   <td className="px-6 py-4 text-gray-900 font-mono text-sm">{flag.key}</td>
-                  <td className="px-6 py-4 text-gray-600 text-sm">{flag.type}</td>
+                  <td className="px-6 py-4 text-gray-600 text-sm">{capitalize(flag.type)}</td>
                   <td className="px-6 py-4">
                     <button
                       onClick={(e) => handleToggle(flag, e)}
@@ -207,6 +233,20 @@ function FlagsPage() {
                     </button>
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm">{flag.owner_team}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(flag);
+                      }}
+                      title="Delete flag"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-white transition"
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#A5678E")}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
@@ -221,6 +261,17 @@ function FlagsPage() {
             fetchFlags();
             setToast({ type: "success", message: "Flag created successfully" });
           }}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete this flag?"
+          message={`"${deleteTarget.key}" will be permanently deleted from ${environment}. This cannot be undone.`}
+          confirmLabel="Delete"
+          busy={deleting}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
 
