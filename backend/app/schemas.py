@@ -47,3 +47,14 @@ class FlagResponse(FlagBase):
 
     class Config:
         from_attributes = True
+
+
+class UserIdRequest(BaseModel):
+    user_id: int
+
+    @field_validator("user_id")
+    @classmethod
+    def user_id_must_be_positive(cls, v):
+        if v <= 0:
+            raise ValueError("user_id must be a positive integer")
+        return v

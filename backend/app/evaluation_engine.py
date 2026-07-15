@@ -6,10 +6,14 @@ def evaluate_flag(db: Session, flag_key: str, environment_id: int, user_context:
     """
     Resolves the value of a flag for a given environment and user context.
 
-    Priority order (for Day 4, simple version):
+    Priority order:
     1. Flag doesn't exist -> return None (caller decides fallback)
     2. Flag is disabled -> return the default_value (kill switch behavior)
-    3. Flag is enabled -> return True (or default_value if type isn't boolean)
+    3. A user_whitelist targeting rule exists on this flag:
+         - user is in the whitelist -> return True
+         - user is not in the whitelist -> return default_value
+    4. No targeting rule exists at all -> return True for boolean flags
+       (Day 4 behavior: enabled with no rules means everyone sees it)
     """
     if user_context is None:
         user_context = {}
@@ -33,7 +37,36 @@ def evaluate_flag(db: Session, flag_key: str, environment_id: int, user_context:
             "reason": "flag_disabled"
         }
 
-    # Flag is enabled, and (for now) no targeting rules exist yet
+    whitelist_rule = db.query(models.TargetingRule).filter(
+        models.TargetingRule.flag_id == flag.id,
+        models.TargetingRule.rule_type == "user_whitelist"
+    ).first()
+
+    if whitelist_rule is not None:
+        whitelisted_ids = whitelist_rule.rule_value.get("user_ids", [])
+
+        raw_user_id = user_context.get("user_id")
+        user_id = None
+        if raw_user_id is not None:
+            try:
+                user_id = int(raw_user_id)
+            except (TypeError, ValueError):
+                user_id = None
+
+        if user_id is not None and user_id in whitelisted_ids:
+            return {
+                "flag_key": flag_key,
+                "value": True,
+                "reason": "user_whitelisted"
+            }
+        else:
+            return {
+                "flag_key": flag_key,
+                "value": flag.default_value,
+                "reason": "no_rule_matched"
+            }
+
+    # Flag is enabled and no targeting rule exists yet
     resolved_value = True if flag.type == "boolean" else flag.default_value
 
     return {
