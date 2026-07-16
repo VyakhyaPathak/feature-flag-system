@@ -15,6 +15,15 @@ function FlagDetailPage() {
   const [error, setError] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // Targeting rules (user whitelist) state
+  const [whitelist, setWhitelist] = useState([]);
+  const [whitelistLoading, setWhitelistLoading] = useState(true);
+  const [whitelistError, setWhitelistError] = useState(null);
+  const [newUserId, setNewUserId] = useState("");
+  const [addError, setAddError] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [removingId, setRemovingId] = useState(null);
+
   const fetchFlag = () => {
     setLoading(true);
     setError(null);
@@ -34,25 +43,31 @@ function FlagDetailPage() {
       });
   };
 
+  const fetchWhitelist = () => {
+    setWhitelistLoading(true);
+    setWhitelistError(null);
+    fetch(`http://localhost:8000/flags/${flagId}/whitelist`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(getErrorMessage(data, "Failed to load targeting rules"));
+        return data;
+      })
+      .then((data) => {
+        setWhitelist(data);
+        setWhitelistLoading(false);
+      })
+      .catch((err) => {
+        setWhitelistError(err.message);
+        setWhitelistLoading(false);
+      });
+  };
+
   useEffect(() => {
     fetchFlag();
+    fetchWhitelist();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flagId]);
 
-  // A flag's detail page is tied to one specific flag ID, which belongs to
-  // exactly one environment - it can't "switch" in place. So if the person
-  // changes the environment switcher while viewing a flag, send them back to
-  // the (environment-aware) Flags list instead of leaving this page showing
-  // stale data for the environment they just left.
-  //
-  // Note: we compare against the *previous actual value* rather than a
-  // simple "is this the first render" boolean. React's StrictMode
-  // (see main.jsx) intentionally runs effects twice on mount in development;
-  // a boolean ref gets flipped by the first pass and then wrongly reads as
-  // "changed" on the second pass, triggering a false redirect back to
-  // /flags immediately after opening a flag. Comparing actual values is
-  // immune to that, since the environment hasn't really changed between
-  // those two passes.
   const previousEnvironmentRef = useRef(environment);
   useEffect(() => {
     if (previousEnvironmentRef.current !== environment) {
@@ -60,6 +75,68 @@ function FlagDetailPage() {
     }
     previousEnvironmentRef.current = environment;
   }, [environment, navigate]);
+
+  const handleAddUserId = (e) => {
+    e.preventDefault();
+    setAddError(null);
+
+    const trimmed = newUserId.trim();
+    if (!trimmed) {
+      setAddError("Please enter a user ID");
+      return;
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      setAddError("User ID must be a positive whole number");
+      return;
+    }
+    if (whitelist.includes(parsed)) {
+      setAddError("This user ID is already whitelisted");
+      return;
+    }
+
+    setAdding(true);
+    fetch(`http://localhost:8000/flags/${flagId}/whitelist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: parsed }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(getErrorMessage(data, "Failed to add user ID"));
+        return data;
+      })
+      .then((data) => {
+        setWhitelist(data);
+        setNewUserId("");
+        setAdding(false);
+      })
+      .catch((err) => {
+        setAddError(err.message);
+        setAdding(false);
+      });
+  };
+
+  const handleRemoveUserId = (userId) => {
+    setRemovingId(userId);
+    setWhitelistError(null);
+    fetch(`http://localhost:8000/flags/${flagId}/whitelist/${userId}`, {
+      method: "DELETE",
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(getErrorMessage(data, "Failed to remove user ID"));
+        return data;
+      })
+      .then((data) => {
+        setWhitelist(data);
+        setRemovingId(null);
+      })
+      .catch((err) => {
+        setWhitelistError(err.message);
+        setRemovingId(null);
+      });
+  };
 
   if (loading) return <p className="text-gray-500 p-6">Loading flag details...</p>;
   if (error) return <p className="text-red-600 p-6">{error}</p>;
@@ -147,10 +224,71 @@ function FlagDetailPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-4 p-6">
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">Targeting Rules</h3>
-        <p className="text-gray-400 text-sm italic">
-          Coming in Milestone 2 — user targeting, group targeting, and percentage rollout rules will appear here.
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-semibold text-gray-900">Targeting Rules (User Whitelist)</h3>
+        </div>
+        <p className="text-gray-500 text-xs mb-4">
+          Users in this list will get the flag enabled. If the user is not in the list, the default value will be used.
         </p>
+
+        {whitelistError && (
+          <p className="text-red-600 text-sm mb-3">{whitelistError}</p>
+        )}
+
+        <form onSubmit={handleAddUserId} className="flex items-start gap-2 mb-4">
+          <div className="flex-1">
+            <input
+              type="text"
+              value={newUserId}
+              onChange={(e) => {
+                setNewUserId(e.target.value);
+                if (addError) setAddError(null);
+              }}
+              placeholder="Enter User ID (e.g. 101)"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              style={{ "--tw-ring-color": "#33539E" }}
+              disabled={adding}
+            />
+            {addError && <p className="text-red-600 text-xs mt-1">{addError}</p>}
+          </div>
+          <button
+            type="submit"
+            disabled={adding}
+            className="px-3 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+            style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
+          >
+            {adding ? "Adding..." : "Add"}
+          </button>
+        </form>
+
+        {whitelistLoading ? (
+          <p className="text-gray-400 text-sm">Loading targeting rules...</p>
+        ) : whitelist.length === 0 ? (
+          <p className="text-gray-400 text-sm italic">No targeting rules yet. All users get the default value.</p>
+        ) : (
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-2">
+              Whitelisted User IDs ({whitelist.length})
+            </p>
+            <ul className="space-y-2">
+              {whitelist.map((userId) => (
+                <li
+                  key={userId}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 border border-gray-100"
+                >
+                  <span className="text-sm text-gray-900 font-mono">{userId}</span>
+                  <button
+                    onClick={() => handleRemoveUserId(userId)}
+                    disabled={removingId === userId}
+                    className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                  >
+                    {removingId === userId ? "Removing..." : "Remove"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {showEditModal && (
