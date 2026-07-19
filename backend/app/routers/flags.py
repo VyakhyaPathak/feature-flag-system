@@ -265,6 +265,53 @@ def remove_group_targeting(flag_id: int, group_name: str, db: Session = Depends(
     return rule.rule_value["groups"]
 
 
+# ---- Day 9: Percentage Rollout ----
+
+@router.get("/{flag_id}/rollout", response_model=int)
+def get_rollout_percentage(flag_id: int, db: Session = Depends(get_db)):
+    flag = db.query(models.Flag).filter(models.Flag.id == flag_id).first()
+    if not flag:
+        raise HTTPException(status_code=404, detail="Flag not found")
+
+    rule = db.query(models.TargetingRule).filter(
+        models.TargetingRule.flag_id == flag_id,
+        models.TargetingRule.rule_type == "percentage_rollout"
+    ).first()
+    return rule.rule_value.get("percentage", 0) if rule else 0
+
+
+@router.put("/{flag_id}/rollout", response_model=int)
+def set_rollout_percentage(flag_id: int, payload: schemas.RolloutPercentageRequest, db: Session = Depends(get_db)):
+    flag = db.query(models.Flag).filter(models.Flag.id == flag_id).first()
+    if not flag:
+        raise HTTPException(status_code=404, detail="Flag not found")
+
+    rule = db.query(models.TargetingRule).filter(
+        models.TargetingRule.flag_id == flag_id,
+        models.TargetingRule.rule_type == "percentage_rollout"
+    ).first()
+
+    if rule is None:
+        rule = models.TargetingRule(
+            flag_id=flag_id,
+            rule_type="percentage_rollout",
+            rule_value={"percentage": payload.percentage},
+            priority=2  # evaluated after user whitelist (0) and group targeting (1)
+        )
+        db.add(rule)
+    else:
+        rule.rule_value = {"percentage": payload.percentage}
+        flag_modified(rule, "rule_value")
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update rollout percentage due to a database error")
+    db.refresh(rule)
+    return rule.rule_value["percentage"]
+
+
 @router.post("/evaluate")
 def evaluate(
     flag_key: str,

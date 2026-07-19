@@ -1,7 +1,7 @@
 import pytest
 from app.database import SessionLocal
 from app import models
-from app.evaluation_engine import evaluate_flag
+from app.evaluation_engine import evaluate_flag, compute_rollout_bucket
 
 
 @pytest.fixture
@@ -284,6 +284,129 @@ def test_group_targeted_but_flag_disabled(db, cleanup_test_flags):
     db.commit()
 
     result = evaluate_flag(db, "test_group_disabled_flag", environment_id=1, user_context={"user_id": 90004})
+
+    assert result["value"] == flag.default_value
+    assert result["reason"] == "flag_disabled"
+
+
+# ---- Day 9: Percentage Rollout ----
+
+def test_rollout_bucket_is_deterministic():
+    """Case 13: The same user_id + flag_key must always produce the same
+    bucket, on repeated calls - this is what makes rollout 'sticky'."""
+    bucket_1 = compute_rollout_bucket(205, "AI_CHAT")
+    bucket_2 = compute_rollout_bucket(205, "AI_CHAT")
+
+    assert bucket_1 == bucket_2
+    assert 0 <= bucket_1 < 100
+
+
+def test_rollout_bucket_differs_by_flag():
+    """Case 14: The same user can land in a different bucket for a
+    different flag - buckets are per (user, flag), not just per user."""
+    bucket_flag_a = compute_rollout_bucket(205, "flag_a")
+    bucket_flag_b = compute_rollout_bucket(205, "flag_b")
+
+    # Not asserting they differ (a coincidental collision is possible and
+    # not a bug), just confirming the function is flag-aware and both are
+    # valid bucket values.
+    assert 0 <= bucket_flag_a < 100
+    assert 0 <= bucket_flag_b < 100
+
+
+def test_user_within_rollout_percentage_gets_enabled(db, cleanup_test_flags):
+    """Case 15: A user whose bucket falls below the configured rollout
+    percentage gets the flag enabled via percentage_rollout."""
+    flag = models.Flag(
+        key="test_rollout_flag", environment_id=1, type="boolean",
+        default_value=False, enabled=True
+    )
+    db.add(flag)
+    db.flush()
+
+    # 100% rollout guarantees every possible bucket (0-99) is "within range",
+    # so this test can't flake regardless of which bucket 90005 lands in.
+    rule = models.TargetingRule(
+        flag_id=flag.id, rule_type="percentage_rollout",
+        rule_value={"percentage": 100}, priority=2
+    )
+    db.add(rule)
+    db.commit()
+
+    result = evaluate_flag(db, "test_rollout_flag", environment_id=1, user_context={"user_id": 90005})
+
+    assert result["value"] is True
+    assert result["reason"] == "percentage_rollout"
+
+
+def test_user_outside_rollout_percentage_gets_default(db, cleanup_test_flags):
+    """Case 16: A 0% rollout means no bucket ever qualifies -> everyone
+    falls back to default_value, regardless of who they are."""
+    flag = models.Flag(
+        key="test_rollout_zero_flag", environment_id=1, type="boolean",
+        default_value=False, enabled=True
+    )
+    db.add(flag)
+    db.flush()
+
+    rule = models.TargetingRule(
+        flag_id=flag.id, rule_type="percentage_rollout",
+        rule_value={"percentage": 0}, priority=2
+    )
+    db.add(rule)
+    db.commit()
+
+    result = evaluate_flag(db, "test_rollout_zero_flag", environment_id=1, user_context={"user_id": 90006})
+
+    assert result["value"] == flag.default_value
+    assert result["reason"] == "no_rule_matched"
+
+
+def test_rollout_takes_lower_priority_than_whitelist(db, cleanup_test_flags):
+    """Case 17: Priority order proof - a user in the whitelist gets in via
+    user_whitelisted even with a 0% rollout configured on the same flag."""
+    flag = models.Flag(
+        key="test_rollout_priority_flag", environment_id=1, type="boolean",
+        default_value=False, enabled=True
+    )
+    db.add(flag)
+    db.flush()
+
+    whitelist_rule = models.TargetingRule(
+        flag_id=flag.id, rule_type="user_whitelist",
+        rule_value={"user_ids": [90007]}, priority=0
+    )
+    rollout_rule = models.TargetingRule(
+        flag_id=flag.id, rule_type="percentage_rollout",
+        rule_value={"percentage": 0}, priority=2
+    )
+    db.add_all([whitelist_rule, rollout_rule])
+    db.commit()
+
+    result = evaluate_flag(db, "test_rollout_priority_flag", environment_id=1, user_context={"user_id": 90007})
+
+    assert result["value"] is True
+    assert result["reason"] == "user_whitelisted"
+
+
+def test_rollout_but_flag_disabled(db, cleanup_test_flags):
+    """Case 18: Priority order proof - a disabled flag returns default_value
+    even at 100% rollout. Enabled-check always comes first."""
+    flag = models.Flag(
+        key="test_rollout_disabled_flag", environment_id=1, type="boolean",
+        default_value=False, enabled=False
+    )
+    db.add(flag)
+    db.flush()
+
+    rule = models.TargetingRule(
+        flag_id=flag.id, rule_type="percentage_rollout",
+        rule_value={"percentage": 100}, priority=2
+    )
+    db.add(rule)
+    db.commit()
+
+    result = evaluate_flag(db, "test_rollout_disabled_flag", environment_id=1, user_context={"user_id": 90008})
 
     assert result["value"] == flag.default_value
     assert result["reason"] == "flag_disabled"

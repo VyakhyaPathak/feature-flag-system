@@ -35,6 +35,12 @@ function FlagDetailPage() {
   const [addingGroup, setAddingGroup] = useState(false);
   const [removingGroup, setRemovingGroup] = useState(null);
 
+  // Targeting rules - C) percentage rollout (Day 9)
+  const [rolloutPercentage, setRolloutPercentage] = useState(0);
+  const [rolloutLoading, setRolloutLoading] = useState(true);
+  const [rolloutError, setRolloutError] = useState(null);
+  const [savingRollout, setSavingRollout] = useState(false);
+
   const fetchFlag = () => {
     setLoading(true);
     setError(null);
@@ -100,10 +106,30 @@ function FlagDetailPage() {
       });
   };
 
+  const fetchRollout = () => {
+    setRolloutLoading(true);
+    setRolloutError(null);
+    fetch(`http://localhost:8000/flags/${flagId}/rollout`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(getErrorMessage(data, "Failed to load rollout percentage"));
+        return data;
+      })
+      .then((data) => {
+        setRolloutPercentage(data);
+        setRolloutLoading(false);
+      })
+      .catch((err) => {
+        setRolloutError(err.message);
+        setRolloutLoading(false);
+      });
+  };
+
   useEffect(() => {
     fetchFlag();
     fetchWhitelist();
     fetchGroupTargeting();
+    fetchRollout();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flagId]);
 
@@ -220,6 +246,35 @@ function FlagDetailPage() {
       .catch((err) => {
         setGroupsError(err.message);
         setRemovingGroup(null);
+      });
+  };
+
+  // The slider updates rolloutPercentage on every drag tick (instant visual
+  // feedback, matching the mockup's "Live Effect" behavior), but only
+  // PERSISTS to the backend on release (mouseUp/touchEnd/keyUp) - dragging
+  // across the full 0-100 range would otherwise fire ~100 API calls in a
+  // couple of seconds for no benefit.
+  const saveRollout = (value) => {
+    setSavingRollout(true);
+    setRolloutError(null);
+    fetch(`http://localhost:8000/flags/${flagId}/rollout`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ percentage: value }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(getErrorMessage(data, "Failed to update rollout percentage"));
+        return data;
+      })
+      .then((data) => {
+        setRolloutPercentage(data);
+        setSavingRollout(false);
+      })
+      .catch((err) => {
+        setRolloutError(err.message);
+        setSavingRollout(false);
+        fetchRollout(); // resync with server truth if the save failed
       });
   };
 
@@ -379,8 +434,8 @@ function FlagDetailPage() {
           )}
         </div>
 
-        <div className="border-t border-gray-100 pt-5">
-          {/* B) Group Targeting */}
+        {/* B) Group Targeting */}
+        <div className="border-t border-gray-100 pt-5 mb-6">
           <h4 className="text-sm font-medium text-gray-800 mb-1">
             B) Group Targeting (Users in selected groups)
           </h4>
@@ -448,6 +503,61 @@ function FlagDetailPage() {
               <p className="text-gray-400 text-xs mt-3">
                 Users in ANY selected group will get the flag enabled.
               </p>
+            </>
+          )}
+        </div>
+
+        {/* C) Percentage Rollout */}
+        <div className="border-t border-gray-100 pt-5">
+          <h4 className="text-sm font-medium text-gray-800 mb-1">C) Percentage Rollout</h4>
+          <p className="text-gray-500 text-xs mb-3">
+            Gradually enable this flag for a percentage of users.
+          </p>
+
+          {rolloutError && <p className="text-red-600 text-sm mb-3">{rolloutError}</p>}
+
+          {rolloutLoading ? (
+            <p className="text-gray-400 text-sm">Loading...</p>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium" style={{ color: "#33539E" }}>
+                  Enabled for {rolloutPercentage}% of users.
+                  {savingRollout && <span className="text-gray-400 font-normal"> Saving...</span>}
+                </p>
+                <span
+                  className="text-xs font-semibold px-2 py-1 rounded-lg border"
+                  style={{ color: "#33539E", borderColor: "#33539E" }}
+                >
+                  {rolloutPercentage}%
+                </span>
+              </div>
+
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={rolloutPercentage}
+                onChange={(e) => setRolloutPercentage(Number(e.target.value))}
+                onMouseUp={(e) => saveRollout(Number(e.target.value))}
+                onTouchEnd={(e) => saveRollout(Number(e.target.value))}
+                onKeyUp={(e) => saveRollout(Number(e.target.value))}
+                disabled={savingRollout}
+                className="w-full accent-[#33539E]"
+              />
+              <div className="flex justify-between text-xs text-gray-400 mt-1">
+                <span>0%</span>
+                <span>100%</span>
+              </div>
+
+              <div
+                className="mt-4 text-xs rounded-lg px-3 py-2"
+                style={{ backgroundColor: "rgba(51,83,158,0.06)", color: "#33539E" }}
+              >
+                Users are placed into a 0–100 bucket using a deterministic hash of their user ID
+                and this flag's key. Users with a bucket below {rolloutPercentage} will see the
+                enabled value. Changes take effect immediately — no redeploy needed.
+              </div>
             </>
           )}
         </div>

@@ -69,3 +69,14 @@ class GroupNameRequest(BaseModel):
         if not v or not v.strip():
             raise ValueError("group_name cannot be empty")
         return v.strip()
+
+
+class RolloutPercentageRequest(BaseModel):
+    percentage: int
+
+    @field_validator("percentage")
+    @classmethod
+    def percentage_must_be_in_range(cls, v):
+        if v < 0 or v > 100:
+            raise ValueError("percentage must be between 0 and 100")
+        return v
