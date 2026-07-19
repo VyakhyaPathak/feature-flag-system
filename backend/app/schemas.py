@@ -58,3 +58,14 @@ class UserIdRequest(BaseModel):
         if v <= 0:
             raise ValueError("user_id must be a positive integer")
         return v
+
+
+class GroupNameRequest(BaseModel):
+    group_name: str
+
+    @field_validator("group_name")
+    @classmethod
+    def group_name_must_not_be_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("group_name cannot be empty")
+        return v.strip()

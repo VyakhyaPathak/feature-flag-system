@@ -43,6 +43,20 @@ def list_flags(environment_id: int | None = None, db: Session = Depends(get_db))
     return query.all()
 
 
+# IMPORTANT: this must stay ABOVE get_flag("/{flag_id}") below. Both are
+# single-segment GET routes under /flags, and FastAPI/Starlette matches
+# routes in registration order - if "/{flag_id}" were registered first, a
+# request to /flags/available-groups would incorrectly try to parse
+# "available-groups" as flag_id (an int) and fail with a 422 instead of
+# reaching this endpoint.
+@router.get("/available-groups", response_model=list[str])
+def list_available_groups(db: Session = Depends(get_db)):
+    """Every distinct group name that exists in user_group_memberships,
+    used by the frontend's group-selector dropdown on the Flag Detail page."""
+    rows = db.query(models.UserGroupMembership.group_name).distinct().all()
+    return sorted({row[0] for row in rows})
+
+
 @router.get("/{flag_id}", response_model=schemas.FlagResponse)
 def get_flag(flag_id: int, db: Session = Depends(get_db)):
     flag = db.query(models.Flag).filter(models.Flag.id == flag_id).first()
@@ -166,6 +180,89 @@ def remove_from_whitelist(flag_id: int, user_id: int, db: Session = Depends(get_
         raise HTTPException(status_code=500, detail="Failed to update whitelist due to a database error")
     db.refresh(rule)
     return rule.rule_value["user_ids"]
+
+
+# ---- Day 8: Group Targeting ----
+
+@router.get("/{flag_id}/groups", response_model=list[str])
+def get_group_targeting(flag_id: int, db: Session = Depends(get_db)):
+    flag = db.query(models.Flag).filter(models.Flag.id == flag_id).first()
+    if not flag:
+        raise HTTPException(status_code=404, detail="Flag not found")
+
+    rule = db.query(models.TargetingRule).filter(
+        models.TargetingRule.flag_id == flag_id,
+        models.TargetingRule.rule_type == "group_whitelist"
+    ).first()
+    return rule.rule_value.get("groups", []) if rule else []
+
+
+@router.post("/{flag_id}/groups", response_model=list[str])
+def add_group_targeting(flag_id: int, payload: schemas.GroupNameRequest, db: Session = Depends(get_db)):
+    flag = db.query(models.Flag).filter(models.Flag.id == flag_id).first()
+    if not flag:
+        raise HTTPException(status_code=404, detail="Flag not found")
+
+    rule = db.query(models.TargetingRule).filter(
+        models.TargetingRule.flag_id == flag_id,
+        models.TargetingRule.rule_type == "group_whitelist"
+    ).first()
+
+    if rule is None:
+        rule = models.TargetingRule(
+            flag_id=flag_id,
+            rule_type="group_whitelist",
+            rule_value={"groups": []},
+            priority=1  # evaluated after user whitelist (priority 0)
+        )
+        db.add(rule)
+        db.flush()
+
+    groups = list(rule.rule_value.get("groups", []))
+    if payload.group_name in groups:
+        raise HTTPException(status_code=400, detail="Group already selected for this flag")
+
+    groups.append(payload.group_name)
+    rule.rule_value = {"groups": groups}
+    flag_modified(rule, "rule_value")
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update group targeting due to a database error")
+    db.refresh(rule)
+    return rule.rule_value["groups"]
+
+
+@router.delete("/{flag_id}/groups/{group_name}", response_model=list[str])
+def remove_group_targeting(flag_id: int, group_name: str, db: Session = Depends(get_db)):
+    flag = db.query(models.Flag).filter(models.Flag.id == flag_id).first()
+    if not flag:
+        raise HTTPException(status_code=404, detail="Flag not found")
+
+    rule = db.query(models.TargetingRule).filter(
+        models.TargetingRule.flag_id == flag_id,
+        models.TargetingRule.rule_type == "group_whitelist"
+    ).first()
+    if rule is None:
+        raise HTTPException(status_code=404, detail="No group targeting rule exists for this flag")
+
+    groups = list(rule.rule_value.get("groups", []))
+    if group_name not in groups:
+        raise HTTPException(status_code=404, detail="Group not found in this flag's targeting rule")
+
+    groups.remove(group_name)
+    rule.rule_value = {"groups": groups}
+    flag_modified(rule, "rule_value")
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update group targeting due to a database error")
+    db.refresh(rule)
+    return rule.rule_value["groups"]
 
 
 @router.post("/evaluate")

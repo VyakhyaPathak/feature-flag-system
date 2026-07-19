@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import FlagFormModal from "../components/FlagFormModal";
+import Dropdown from "../components/Dropdown";
 import { environmentById } from "../constants/environments";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { getErrorMessage } from "../utils/apiErrors";
@@ -15,7 +16,7 @@ function FlagDetailPage() {
   const [error, setError] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  // Targeting rules (user whitelist) state
+  // Targeting rules - A) user whitelist
   const [whitelist, setWhitelist] = useState([]);
   const [whitelistLoading, setWhitelistLoading] = useState(true);
   const [whitelistError, setWhitelistError] = useState(null);
@@ -23,6 +24,16 @@ function FlagDetailPage() {
   const [addError, setAddError] = useState(null);
   const [adding, setAdding] = useState(false);
   const [removingId, setRemovingId] = useState(null);
+
+  // Targeting rules - B) group targeting (Day 8)
+  const [selectedGroups, setSelectedGroups] = useState([]);
+  const [availableGroups, setAvailableGroups] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(true);
+  const [groupsError, setGroupsError] = useState(null);
+  const [groupToAdd, setGroupToAdd] = useState("");
+  const [addGroupError, setAddGroupError] = useState(null);
+  const [addingGroup, setAddingGroup] = useState(false);
+  const [removingGroup, setRemovingGroup] = useState(null);
 
   const fetchFlag = () => {
     setLoading(true);
@@ -62,9 +73,37 @@ function FlagDetailPage() {
       });
   };
 
+  const fetchGroupTargeting = () => {
+    setGroupsLoading(true);
+    setGroupsError(null);
+
+    Promise.all([
+      fetch(`http://localhost:8000/flags/${flagId}/groups`).then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(getErrorMessage(data, "Failed to load group targeting"));
+        return data;
+      }),
+      fetch(`http://localhost:8000/flags/available-groups`).then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(getErrorMessage(data, "Failed to load available groups"));
+        return data;
+      }),
+    ])
+      .then(([selected, available]) => {
+        setSelectedGroups(selected);
+        setAvailableGroups(available);
+        setGroupsLoading(false);
+      })
+      .catch((err) => {
+        setGroupsError(err.message);
+        setGroupsLoading(false);
+      });
+  };
+
   useEffect(() => {
     fetchFlag();
     fetchWhitelist();
+    fetchGroupTargeting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flagId]);
 
@@ -138,8 +177,58 @@ function FlagDetailPage() {
       });
   };
 
+  const handleAddGroup = (groupName) => {
+    if (!groupName) return;
+    setAddGroupError(null);
+    setAddingGroup(true);
+    fetch(`http://localhost:8000/flags/${flagId}/groups`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ group_name: groupName }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(getErrorMessage(data, "Failed to add group"));
+        return data;
+      })
+      .then((data) => {
+        setSelectedGroups(data);
+        setGroupToAdd("");
+        setAddingGroup(false);
+      })
+      .catch((err) => {
+        setAddGroupError(err.message);
+        setAddingGroup(false);
+      });
+  };
+
+  const handleRemoveGroup = (groupName) => {
+    setRemovingGroup(groupName);
+    setGroupsError(null);
+    fetch(`http://localhost:8000/flags/${flagId}/groups/${encodeURIComponent(groupName)}`, {
+      method: "DELETE",
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(getErrorMessage(data, "Failed to remove group"));
+        return data;
+      })
+      .then((data) => {
+        setSelectedGroups(data);
+        setRemovingGroup(null);
+      })
+      .catch((err) => {
+        setGroupsError(err.message);
+        setRemovingGroup(null);
+      });
+  };
+
   if (loading) return <p className="text-gray-500 p-6">Loading flag details...</p>;
   if (error) return <p className="text-red-600 p-6">{error}</p>;
+
+  const groupOptions = availableGroups
+    .filter((g) => !selectedGroups.includes(g))
+    .map((g) => ({ value: g, label: g }));
 
   return (
     <div className="p-6 max-w-2xl">
@@ -224,71 +313,144 @@ function FlagDetailPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-4 p-6">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-semibold text-gray-900">Targeting Rules (User Whitelist)</h3>
-        </div>
-        <p className="text-gray-500 text-xs mb-4">
-          Users in this list will get the flag enabled. If the user is not in the list, the default value will be used.
-        </p>
+        <h3 className="text-sm font-semibold text-gray-900 mb-4">Targeting Rules</h3>
 
-        {whitelistError && (
-          <p className="text-red-600 text-sm mb-3">{whitelistError}</p>
-        )}
+        {/* A) User Whitelist */}
+        <div className="mb-6">
+          <h4 className="text-sm font-medium text-gray-800 mb-1">A) User Whitelist (User IDs)</h4>
+          <p className="text-gray-500 text-xs mb-3">
+            Users in this list will get the flag enabled.
+          </p>
 
-        <form onSubmit={handleAddUserId} className="flex items-start gap-2 mb-4">
-          <div className="flex-1">
-            <input
-              type="text"
-              value={newUserId}
-              onChange={(e) => {
-                setNewUserId(e.target.value);
-                if (addError) setAddError(null);
-              }}
-              placeholder="Enter User ID (e.g. 101)"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ "--tw-ring-color": "#33539E" }}
+          {whitelistError && <p className="text-red-600 text-sm mb-3">{whitelistError}</p>}
+
+          <form onSubmit={handleAddUserId} className="flex items-start gap-2 mb-3">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={newUserId}
+                onChange={(e) => {
+                  setNewUserId(e.target.value);
+                  if (addError) setAddError(null);
+                }}
+                placeholder="Enter User ID (e.g. 101)"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                style={{ "--tw-ring-color": "#33539E" }}
+                disabled={adding}
+              />
+              {addError && <p className="text-red-600 text-xs mt-1">{addError}</p>}
+            </div>
+            <button
+              type="submit"
               disabled={adding}
-            />
-            {addError && <p className="text-red-600 text-xs mt-1">{addError}</p>}
-          </div>
-          <button
-            type="submit"
-            disabled={adding}
-            className="px-3 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
-            style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
-          >
-            {adding ? "Adding..." : "Add"}
-          </button>
-        </form>
+              className="px-3 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+              style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
+            >
+              {adding ? "Adding..." : "Add"}
+            </button>
+          </form>
 
-        {whitelistLoading ? (
-          <p className="text-gray-400 text-sm">Loading targeting rules...</p>
-        ) : whitelist.length === 0 ? (
-          <p className="text-gray-400 text-sm italic">No targeting rules yet. All users get the default value.</p>
-        ) : (
-          <div>
-            <p className="text-xs font-medium text-gray-500 mb-2">
-              Whitelisted User IDs ({whitelist.length})
+          {whitelistLoading ? (
+            <p className="text-gray-400 text-sm">Loading...</p>
+          ) : whitelist.length === 0 ? (
+            <p className="text-gray-400 text-sm italic">
+              No targeting rules yet. All users get the default value.
             </p>
-            <ul className="space-y-2">
+          ) : (
+            <div className="flex flex-wrap gap-2">
               {whitelist.map((userId) => (
-                <li
+                <span
                   key={userId}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 border border-gray-100"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono"
+                  style={{ backgroundColor: "rgba(51,83,158,0.08)", color: "#33539E" }}
                 >
-                  <span className="text-sm text-gray-900 font-mono">{userId}</span>
+                  {userId}
                   <button
                     onClick={() => handleRemoveUserId(userId)}
                     disabled={removingId === userId}
-                    className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                    className="hover:opacity-70 disabled:opacity-40"
+                    aria-label={`Remove user ${userId}`}
                   >
-                    {removingId === userId ? "Removing..." : "Remove"}
+                    ×
                   </button>
-                </li>
+                </span>
               ))}
-            </ul>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-gray-100 pt-5">
+          {/* B) Group Targeting */}
+          <h4 className="text-sm font-medium text-gray-800 mb-1">
+            B) Group Targeting (Users in selected groups)
+          </h4>
+          <p className="text-gray-500 text-xs mb-3">
+            Users who belong to any of these groups will get the flag enabled.
+          </p>
+
+          {groupsError && <p className="text-red-600 text-sm mb-3">{groupsError}</p>}
+
+          {groupsLoading ? (
+            <p className="text-gray-400 text-sm">Loading...</p>
+          ) : (
+            <>
+              <div className="mb-3">
+                {availableGroups.length === 0 ? (
+                  <p className="text-gray-400 text-xs italic">
+                    No groups exist yet in user_group_memberships. Add group memberships in the
+                    database to make them selectable here.
+                  </p>
+                ) : groupOptions.length === 0 ? (
+                  <p className="text-gray-400 text-xs italic">
+                    All available groups are already selected for this flag.
+                  </p>
+                ) : (
+                  <Dropdown
+                    value={groupToAdd}
+                    options={groupOptions}
+                    onChange={(val) => {
+                      setGroupToAdd(val);
+                      handleAddGroup(val);
+                    }}
+                    placeholder={addingGroup ? "Adding..." : "Select groups..."}
+                    disabled={addingGroup}
+                  />
+                )}
+                {addGroupError && <p className="text-red-600 text-xs mt-1">{addGroupError}</p>}
+              </div>
+
+              {selectedGroups.length === 0 ? (
+                <p className="text-gray-400 text-sm italic">
+                  No groups selected. Group membership won't grant this flag.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {selectedGroups.map((groupName) => (
+                    <span
+                      key={groupName}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs"
+                      style={{ backgroundColor: "rgba(165,103,142,0.1)", color: "#A5678E" }}
+                    >
+                      {groupName}
+                      <button
+                        onClick={() => handleRemoveGroup(groupName)}
+                        disabled={removingGroup === groupName}
+                        className="hover:opacity-70 disabled:opacity-40"
+                        aria-label={`Remove group ${groupName}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-gray-400 text-xs mt-3">
+                Users in ANY selected group will get the flag enabled.
+              </p>
+            </>
+          )}
+        </div>
       </div>
 
       {showEditModal && (
