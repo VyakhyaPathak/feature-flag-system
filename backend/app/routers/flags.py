@@ -57,6 +57,138 @@ def list_available_groups(db: Session = Depends(get_db)):
     return sorted({row[0] for row in rows})
 
 
+# ---- Day 10: Environment-Specific Flag Overrides ----
+# Same ordering rule as above: these are multi-segment paths under /flags/,
+# registered before "/{flag_id}" for clarity even though FastAPI can already
+# tell them apart from a single-segment int path.
+
+@router.get("/keys", response_model=list[str])
+def list_flag_keys(db: Session = Depends(get_db)):
+    """Distinct flag keys across all environments - powers the 'Select Flag'
+    dropdown on the Environment Management page."""
+    rows = db.query(models.Flag.key).distinct().all()
+    return sorted({row[0] for row in rows})
+
+
+def _get_canonical_flag(db: Session, flag_key: str) -> models.Flag:
+    """The flag's 'Default Value' shown at the top of the override panel comes
+    from the first Flag row ever created for this key (lowest id) - the
+    environment it was originally built in."""
+    flag = (
+        db.query(models.Flag)
+        .filter(models.Flag.key == flag_key)
+        .order_by(models.Flag.id.asc())
+        .first()
+    )
+    if not flag:
+        raise HTTPException(status_code=404, detail=f"No flag found with key '{flag_key}'")
+    return flag
+
+
+@router.get("/by-key/{flag_key}/overrides", response_model=list[schemas.FlagOverrideEntry])
+def get_flag_overrides(flag_key: str, db: Session = Depends(get_db)):
+    canonical_flag = _get_canonical_flag(db, flag_key)
+
+    environments = db.query(models.Environment).order_by(models.Environment.id).all()
+    if not environments:
+        raise HTTPException(status_code=404, detail="No environments configured yet")
+
+    results = []
+    for env in environments:
+        override = db.query(models.FlagOverride).filter(
+            models.FlagOverride.flag_key == flag_key,
+            models.FlagOverride.environment_id == env.id
+        ).first()
+
+        if override:
+            results.append(schemas.FlagOverrideEntry(
+                environment_id=env.id, environment_name=env.name,
+                overridden=True, override_enabled=override.enabled,
+                default_enabled=canonical_flag.enabled,
+                effective_enabled=override.enabled,
+                updated_at=override.updated_at,
+            ))
+        else:
+            results.append(schemas.FlagOverrideEntry(
+                environment_id=env.id, environment_name=env.name,
+                overridden=False, override_enabled=None,
+                default_enabled=canonical_flag.enabled,
+                effective_enabled=canonical_flag.enabled,
+                updated_at=None,
+            ))
+    return results
+
+
+@router.put("/by-key/{flag_key}/overrides/{environment_id}", response_model=schemas.FlagOverrideEntry)
+def set_flag_override(
+    flag_key: str,
+    environment_id: int,
+    payload: schemas.FlagOverrideSetRequest,
+    db: Session = Depends(get_db),
+):
+    canonical_flag = _get_canonical_flag(db, flag_key)
+
+    environment = db.query(models.Environment).filter(models.Environment.id == environment_id).first()
+    if not environment:
+        raise HTTPException(status_code=400, detail=f"Environment with id {environment_id} does not exist")
+
+    override = db.query(models.FlagOverride).filter(
+        models.FlagOverride.flag_key == flag_key,
+        models.FlagOverride.environment_id == environment_id
+    ).first()
+
+    if override is None:
+        override = models.FlagOverride(flag_key=flag_key, environment_id=environment_id, enabled=payload.enabled)
+        db.add(override)
+    else:
+        override.enabled = payload.enabled
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update override due to a database error")
+    db.refresh(override)
+
+    return schemas.FlagOverrideEntry(
+        environment_id=environment_id, environment_name=environment.name,
+        overridden=True, override_enabled=override.enabled,
+        default_enabled=canonical_flag.enabled, effective_enabled=override.enabled,
+        updated_at=override.updated_at,
+    )
+
+
+@router.delete("/by-key/{flag_key}/overrides/{environment_id}", response_model=schemas.FlagOverrideEntry)
+def clear_flag_override(flag_key: str, environment_id: int, db: Session = Depends(get_db)):
+    """Reverts an environment back to 'Using Default' by removing its override."""
+    canonical_flag = _get_canonical_flag(db, flag_key)
+
+    environment = db.query(models.Environment).filter(models.Environment.id == environment_id).first()
+    if not environment:
+        raise HTTPException(status_code=404, detail="Environment not found")
+
+    override = db.query(models.FlagOverride).filter(
+        models.FlagOverride.flag_key == flag_key,
+        models.FlagOverride.environment_id == environment_id
+    ).first()
+    if override is None:
+        raise HTTPException(status_code=404, detail="No override exists for this flag in this environment")
+
+    try:
+        db.delete(override)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to clear override due to a database error")
+
+    return schemas.FlagOverrideEntry(
+        environment_id=environment_id, environment_name=environment.name,
+        overridden=False, override_enabled=None,
+        default_enabled=canonical_flag.enabled, effective_enabled=canonical_flag.enabled,
+        updated_at=None,
+    )
+
+
 @router.get("/{flag_id}", response_model=schemas.FlagResponse)
 def get_flag(flag_id: int, db: Session = Depends(get_db)):
     flag = db.query(models.Flag).filter(models.Flag.id == flag_id).first()
@@ -133,7 +265,7 @@ def add_to_whitelist(flag_id: int, payload: schemas.UserIdRequest, db: Session =
             priority=0
         )
         db.add(rule)
-        db.flush()  # ensure rule.id exists before we mutate rule_value below
+        db.flush()
 
     user_ids = list(rule.rule_value.get("user_ids", []))
     if payload.user_id in user_ids:
@@ -141,7 +273,7 @@ def add_to_whitelist(flag_id: int, payload: schemas.UserIdRequest, db: Session =
 
     user_ids.append(payload.user_id)
     rule.rule_value = {"user_ids": user_ids}
-    flag_modified(rule, "rule_value")  # force SQLAlchemy to detect the JSON change
+    flag_modified(rule, "rule_value")
 
     try:
         db.commit()
@@ -171,7 +303,7 @@ def remove_from_whitelist(flag_id: int, user_id: int, db: Session = Depends(get_
 
     user_ids.remove(user_id)
     rule.rule_value = {"user_ids": user_ids}
-    flag_modified(rule, "rule_value")  # force SQLAlchemy to detect the JSON change
+    flag_modified(rule, "rule_value")
 
     try:
         db.commit()
@@ -213,7 +345,7 @@ def add_group_targeting(flag_id: int, payload: schemas.GroupNameRequest, db: Ses
             flag_id=flag_id,
             rule_type="group_whitelist",
             rule_value={"groups": []},
-            priority=1  # evaluated after user whitelist (priority 0)
+            priority=1
         )
         db.add(rule)
         db.flush()
@@ -296,7 +428,7 @@ def set_rollout_percentage(flag_id: int, payload: schemas.RolloutPercentageReque
             flag_id=flag_id,
             rule_type="percentage_rollout",
             rule_value={"percentage": payload.percentage},
-            priority=2  # evaluated after user whitelist (0) and group targeting (1)
+            priority=2
         )
         db.add(rule)
     else:

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, TIMESTAMP, JSON, Text
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, TIMESTAMP, JSON, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -9,6 +9,8 @@ class Environment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), unique=True, nullable=False)  # e.g. "development", "production"
+    description = Column(Text, nullable=True)                              # Day 10
+    status = Column(String(20), nullable=False, default="active")          # Day 10: "active" | "inactive"
     created_at = Column(TIMESTAMP, server_default=func.now())
 
     flags = relationship("Flag", back_populates="environment")
@@ -77,3 +79,21 @@ class AuditLog(Base):
     previous_state = Column(JSON, nullable=True)
     new_state = Column(JSON, nullable=True)
     timestamp = Column(TIMESTAMP, server_default=func.now())
+
+
+# ---- Day 10: Environment-Specific Flag Overrides ----
+class FlagOverride(Base):
+    __tablename__ = "flag_overrides"
+
+    id = Column(Integer, primary_key=True, index=True)
+    flag_key = Column(String(100), nullable=False, index=True)
+    environment_id = Column(Integer, ForeignKey("environments.id"), nullable=False, index=True)
+    enabled = Column(Boolean, nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+    environment = relationship("Environment")
+
+    __table_args__ = (
+        UniqueConstraint("flag_key", "environment_id", name="uq_flag_override_key_env"),
+    )

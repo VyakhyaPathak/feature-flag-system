@@ -46,6 +46,9 @@ def evaluate_flag(db: Session, flag_key: str, environment_id: int, user_context:
     Resolves the value of a flag for a given environment and user context.
 
     Priority order:
+    0. Day 10: An explicit environment override exists for this flag_key +
+       environment_id -> return that value immediately ("environment_override").
+       This is a manual admin control and outranks every automated rule below.
     1. Flag doesn't exist -> return None (caller decides fallback)
     2. Flag is disabled -> return the default_value (kill switch behavior,
        always wins regardless of any targeting rule)
@@ -63,6 +66,18 @@ def evaluate_flag(db: Session, flag_key: str, environment_id: int, user_context:
     """
     if user_context is None:
         user_context = {}
+
+    # ---- Day 10: environment override check (highest priority) ----
+    override = db.query(models.FlagOverride).filter(
+        models.FlagOverride.flag_key == flag_key,
+        models.FlagOverride.environment_id == environment_id
+    ).first()
+    if override is not None:
+        return {
+            "flag_key": flag_key,
+            "value": override.enabled,
+            "reason": "environment_override"
+        }
 
     flag = db.query(models.Flag).filter(
         models.Flag.key == flag_key,
@@ -132,14 +147,12 @@ def evaluate_flag(db: Session, flag_key: str, environment_id: int, user_context:
                 }
 
     if whitelist_rule is not None or group_rule is not None or percentage_rule is not None:
-        # At least one targeting rule exists on this flag, but nothing matched.
         return {
             "flag_key": flag_key,
             "value": flag.default_value,
             "reason": "no_rule_matched"
         }
 
-    # Flag is enabled and no targeting rule exists at all yet (Milestone 1 behavior)
     resolved_value = True if flag.type == "boolean" else flag.default_value
 
     return {
