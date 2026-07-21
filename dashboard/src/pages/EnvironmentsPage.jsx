@@ -97,7 +97,7 @@ function EnvironmentsTable({ environments, onCreate, onUpdate, onDelete }) {
   const [deletingId, setDeletingId] = useState(null);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
       <div className="flex justify-between items-center px-5 py-4 border-b border-gray-100">
         <div>
           <h3 className="font-semibold text-gray-900">Environments</h3>
