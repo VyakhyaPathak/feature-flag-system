@@ -29,6 +29,9 @@ def cleanup_test_flags(db):
                 models.TargetingRule.flag_id.in_(test_flag_ids)
             ).delete(synchronize_session=False)
         db.query(models.Flag).filter(models.Flag.key.like("test_%")).delete(synchronize_session=False)
+        db.query(models.FlagOverride).filter(
+        models.FlagOverride.flag_key.like("test_%")
+        ).delete(synchronize_session=False)
         db.query(models.UserGroupMembership).filter(
             models.UserGroupMembership.user_id.in_(["90001", "90002", "90003", "90004"])
         ).delete(synchronize_session=False)
@@ -46,8 +49,8 @@ def test_default_value_fallback(db, cleanup_test_flags):
     assert result["reason"] == "flag_not_found"
 
 
-def test_environment_override(db, cleanup_test_flags):
-    """Case 2: The same flag key can behave differently across environments."""
+def test_same_flag_key_different_environments_independent(db, cleanup_test_flags):
+    """Case 2: Two Flag rows sharing a key in different environments evaluate independently (Day 2 behavior — not to be confused with Day 10's FlagOverride)."""
     flag_dev = models.Flag(
         key="test_env_flag", environment_id=1, type="boolean",
         default_value=True, enabled=True
@@ -410,3 +413,113 @@ def test_rollout_but_flag_disabled(db, cleanup_test_flags):
 
     assert result["value"] == flag.default_value
     assert result["reason"] == "flag_disabled"
+    
+    # ---- Day 10: Environment-Specific Overrides ----
+
+def test_override_enables_flag_that_is_disabled(db, cleanup_test_flags):
+    """Case 19: An override takes priority over everything, including a
+    disabled flag - the whole point of a kill-switch-style manual override."""
+    flag = models.Flag(
+        key="test_override_flag", environment_id=1, type="boolean",
+        default_value=False, enabled=False
+    )
+    db.add(flag)
+    db.flush()
+
+    override = models.FlagOverride(
+        flag_key="test_override_flag", environment_id=1, enabled=True
+    )
+    db.add(override)
+    db.commit()
+
+    result = evaluate_flag(db, "test_override_flag", environment_id=1)
+
+    assert result["value"] is True
+    assert result["reason"] == "environment_override"
+
+
+def test_override_disables_flag_that_is_enabled(db, cleanup_test_flags):
+    """Case 20: An override can also force a flag OFF even if it's enabled
+    and every targeting rule would otherwise pass for this user."""
+    flag = models.Flag(
+        key="test_override_off_flag", environment_id=1, type="boolean",
+        default_value=True, enabled=True
+    )
+    db.add(flag)
+    db.flush()
+
+    whitelist_rule = models.TargetingRule(
+        flag_id=flag.id, rule_type="user_whitelist",
+        rule_value={"user_ids": [90009]}, priority=0
+    )
+    override = models.FlagOverride(
+        flag_key="test_override_off_flag", environment_id=1, enabled=False
+    )
+    db.add_all([whitelist_rule, override])
+    db.commit()
+
+    result = evaluate_flag(db, "test_override_off_flag", environment_id=1, user_context={"user_id": 90009})
+
+    assert result["value"] is False
+    assert result["reason"] == "environment_override"
+
+
+def test_override_only_applies_to_its_own_environment(db, cleanup_test_flags):
+    """Case 21: An override set for one environment must not leak into
+    another environment's evaluation of the same flag key."""
+    flag_dev = models.Flag(
+        key="test_override_scoped_flag", environment_id=1, type="boolean",
+        default_value=False, enabled=True
+    )
+    flag_prod = models.Flag(
+        key="test_override_scoped_flag", environment_id=2, type="boolean",
+        default_value=False, enabled=True
+    )
+    db.add_all([flag_dev, flag_prod])
+    db.flush()
+
+    override = models.FlagOverride(
+        flag_key="test_override_scoped_flag", environment_id=1, enabled=False
+    )
+    db.add(override)
+    db.commit()
+
+    result_dev = evaluate_flag(db, "test_override_scoped_flag", environment_id=1)
+    result_prod = evaluate_flag(db, "test_override_scoped_flag", environment_id=2)
+
+    assert result_dev["value"] is False
+    assert result_dev["reason"] == "environment_override"
+
+    # No override for env 2 - falls through to normal Day 4 "enabled, no rules" behavior
+    assert result_prod["value"] is True
+    assert result_prod["reason"] == "flag_enabled"
+
+
+def test_removing_override_reverts_to_normal_evaluation(db, cleanup_test_flags):
+    """Case 22: Deleting an override row (the 'Reset to default' action in
+    the UI) must make evaluation fall back to normal rule resolution."""
+    flag = models.Flag(
+        key="test_override_removed_flag", environment_id=1, type="boolean",
+        default_value=False, enabled=True
+    )
+    db.add(flag)
+    db.flush()
+
+    override = models.FlagOverride(
+        flag_key="test_override_removed_flag", environment_id=1, enabled=False
+    )
+    db.add(override)
+    db.commit()
+
+    # Sanity check: override is active first
+    result_with_override = evaluate_flag(db, "test_override_removed_flag", environment_id=1)
+    assert result_with_override["reason"] == "environment_override"
+
+    # Now remove it, exactly like the DELETE /overrides endpoint does
+    db.delete(override)
+    db.commit()
+
+    result_after_removal = evaluate_flag(db, "test_override_removed_flag", environment_id=1)
+
+    assert result_after_removal["value"] is True
+    assert result_after_removal["reason"] == "flag_enabled"
