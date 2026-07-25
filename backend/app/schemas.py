@@ -142,12 +142,52 @@ class EnvironmentResponse(EnvironmentBase):
 class FlagOverrideEntry(BaseModel):
     environment_id: int
     environment_name: str
-    overridden: bool                        # True = "Overridden", False = "Using Default"
-    override_enabled: Optional[bool] = None  # the raw toggle value, only set when overridden
-    default_enabled: bool                    # the flag's own base enabled state (shown once at top)
-    effective_enabled: bool                  # override_enabled if overridden else default_enabled
+    overridden: bool
+    override_enabled: Optional[bool] = None
+    default_enabled: bool
+    effective_enabled: bool
     updated_at: Optional[datetime] = None
 
 
 class FlagOverrideSetRequest(BaseModel):
     enabled: bool
+
+
+# ---- Day 11: Flag Evaluation Endpoint & Evaluation Test Panel ----
+
+class EvaluateRequest(BaseModel):
+    flag_key: str
+    environment_id: int
+    user_id: Optional[str] = None
+    groups: Optional[list[str]] = None
+    context: Optional[dict] = None
+
+    @field_validator("flag_key")
+    @classmethod
+    def flag_key_must_not_be_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("flag_key cannot be empty")
+        return v.strip()
+
+
+class PriorityCheckItem(BaseModel):
+    rule: str
+    label: str
+    status: str  # "matched" | "no_match" | "skipped"
+    detail: Optional[str] = None
+
+
+class EvaluateResponse(BaseModel):
+    flag_key: str
+    environment_id: int
+    environment_name: str
+    value: Optional[Any]
+    reason: str
+    matched_rule: str
+    rule_detail: Optional[str] = None
+    priority_check: list[PriorityCheckItem]
+    evaluated_at: datetime
+    request_summary: dict
+    # ---- Day 12: caching visibility ----
+    source: str = "live"           # "live" | "cache"
+    response_time_ms: float = 0.0
