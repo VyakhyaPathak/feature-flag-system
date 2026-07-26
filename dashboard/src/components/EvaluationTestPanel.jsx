@@ -144,7 +144,7 @@ function EvaluationTestPanel({ flagKey, defaultEnvironmentId }) {
         traffic. "Groups" here are simulated for this test only and always bypass the cache.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <form onSubmit={handleEvaluate} className="space-y-3">
           {envError && <p className="text-red-600 text-xs">{envError}</p>}
 
@@ -210,7 +210,7 @@ function EvaluationTestPanel({ flagKey, defaultEnvironmentId }) {
           </button>
         </form>
 
-        <div>
+        <div className="border-t border-gray-100 pt-5">
           {!result ? (
             <p className="text-gray-400 text-sm italic">
               Run an evaluation to see the resolved value and which rule matched.

@@ -314,9 +314,9 @@ useEffect(() => {
       {/* Two-column layout: targeting rules on the left, Evaluation Test
           Panel sticky on the right - uses the empty side space instead of
           stacking below and forcing a full-page scroll. */}
-      <div className="flex flex-col lg:flex-row items-start gap-6 mt-4">
+      <div className="flex flex-col lg:flex-row items-start gap-6 mt-4 max-w-[1400px]">
         {/* Left column: flag details + targeting rules */}
-        <div className="flex-1 w-full min-w-0 max-w-2xl">
+        <div className="flex-1 w-full min-w-0 max-w-3xl">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div
               className="h-1.5"
@@ -618,7 +618,7 @@ useEffect(() => {
             using the empty space beside the (narrower) left column instead
             of stacking below it and forcing a page-length scroll. */}
         {flag && (
-          <div className="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-6">
+          <div className="w-full lg:w-[460px] shrink-0 lg:sticky lg:top-6">
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div
                 className="h-1.5"
