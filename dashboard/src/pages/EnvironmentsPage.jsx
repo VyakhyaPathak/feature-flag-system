@@ -420,59 +420,80 @@ function FlagOverridesPanel({ flagKeys }) {
 }
 
 function EnvironmentsPage() {
-  const [environments, setEnvironments] = useState([]);
-  const [flagKeys, setFlagKeys] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Environments now come from the shared context (same source Navbar,
+  // FlagsPage, and FlagFormModal all read from) instead of a page-local
+  // fetch - so creating/renaming/deleting an environment here is
+  // immediately visible everywhere else in the app, no reload needed.
+  const {
+    environments,
+    environmentsLoading,
+    environmentsError,
+    refreshEnvironments,
+  } = useEnvironment();
 
-  const loadEnvironments = () =>
-    fetch(`${API_BASE}/environments/`)
-      .then((res) => throwIfNotOk(res, "Failed to load environments"))
-      .then((res) => res.json())
-      .then(setEnvironments);
+  const [flagKeys, setFlagKeys] = useState([]);
+  const [flagKeysLoading, setFlagKeysLoading] = useState(true);
+  const [flagKeysError, setFlagKeysError] = useState(null);
 
   const loadFlagKeys = () =>
     fetch(`${API_BASE}/flags/keys`)
       .then((res) => throwIfNotOk(res, "Failed to load flags"))
       .then((res) => res.json())
-      .then(setFlagKeys);
+      .then(setFlagKeys)
+      .catch((err) => setFlagKeysError(err.message))
+      .finally(() => setFlagKeysLoading(false));
 
   useEffect(() => {
-    setLoading(true);
-    Promise.all([loadEnvironments(), loadFlagKeys()])
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+    loadFlagKeys();
   }, []);
 
+  const [mutationError, setMutationError] = useState(null);
+
   const handleCreate = async (data) => {
-    const res = await fetch(`${API_BASE}/environments/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    await throwIfNotOk(res, "Failed to create environment");
-    await loadEnvironments();
+    setMutationError(null);
+    try {
+      const res = await fetch(`${API_BASE}/environments/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      await throwIfNotOk(res, "Failed to create environment");
+      await refreshEnvironments();
+    } catch (err) {
+      setMutationError(err.message);
+      throw err; // re-throw so EnvironmentFormRow's inline error also shows
+    }
   };
 
   const handleUpdate = async (id, data) => {
-    const res = await fetch(`${API_BASE}/environments/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    await throwIfNotOk(res, "Failed to update environment");
-    await loadEnvironments();
+    setMutationError(null);
+    try {
+      const res = await fetch(`${API_BASE}/environments/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      await throwIfNotOk(res, "Failed to update environment");
+      await refreshEnvironments();
+    } catch (err) {
+      setMutationError(err.message);
+      throw err;
+    }
   };
 
   const handleDelete = async (id) => {
+    setMutationError(null);
     try {
       const res = await fetch(`${API_BASE}/environments/${id}`, { method: "DELETE" });
       await throwIfNotOk(res, "Failed to delete environment");
-      await loadEnvironments();
+      await refreshEnvironments();
     } catch (err) {
-      setError(err.message);
+      setMutationError(err.message);
     }
   };
+
+  const loading = environmentsLoading || flagKeysLoading;
+  const error = environmentsError || flagKeysError || mutationError;
 
   return (
     <div className="p-6">

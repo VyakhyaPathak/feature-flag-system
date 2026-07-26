@@ -1,31 +1,12 @@
-// Single source of truth for environment metadata used across the dashboard.
-// Environment CRUD (Day 10 / Milestone 2) will replace this with data fetched
-// from a real /environments API — until then, these IDs must match the rows
-// seeded into the `environments` table (see root README.md).
-export const ENVIRONMENTS = [
-  { id: 1, value: "development", label: "Development", color: "#33539E" },
-  { id: 2, value: "staging", label: "Staging", color: "#7C6AAE" },
-  { id: 3, value: "production", label: "Production", color: "#A5678E" },
-];
+// Day 10 introduced a real Environment CRUD API (/environments), so this
+// file no longer hardcodes environment ids/names/colors - EnvironmentContext
+// fetches the live list instead. The one thing the API doesn't provide is
+// a display color, so this just cycles a fixed brand palette by
+// environment id, giving each environment a stable, distinct pill color
+// on the Flag Detail page without needing to store color in the database.
+const PILL_COLORS = ["#33539E", "#7C6AAE", "#A5678E", "#7FACD6", "#E8B7D4"];
 
-export function environmentIdForValue(value) {
-  return ENVIRONMENTS.find((e) => e.value === value)?.id;
+export function colorForEnvironmentId(id) {
+  if (id == null) return "#6B7280";
+  return PILL_COLORS[Math.abs(id) % PILL_COLORS.length];
 }
-
-export function environmentById(id) {
-  return ENVIRONMENTS.find((e) => e.id === id);
-}
-
-// {value, label} options, keyed by the string `value` (used by the Navbar's
-// environment switcher, which stores "development"/"staging"/"production").
-export const ENVIRONMENT_VALUE_OPTIONS = ENVIRONMENTS.map((e) => ({
-  value: e.value,
-  label: e.label,
-}));
-
-// {value, label} options, keyed by numeric `id` (used by the flag Create/Edit
-// form, which stores environment_id).
-export const ENVIRONMENT_ID_OPTIONS = ENVIRONMENTS.map((e) => ({
-  value: e.id,
-  label: e.label,
-}));

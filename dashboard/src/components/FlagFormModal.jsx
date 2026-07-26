@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useEnvironment } from "../context/EnvironmentContext";
-import { environmentIdForValue, ENVIRONMENT_ID_OPTIONS } from "../constants/environments";
+import { capitalize } from "../utils/format";
 import { getErrorMessage } from "../utils/apiErrors";
 import Dropdown from "./Dropdown";
 
@@ -11,12 +11,13 @@ const TYPE_OPTIONS = [
 ];
 
 function FlagFormModal({ onClose, onFlagCreated, existingFlag = null }) {
-  const { environment } = useEnvironment();
+  const { environments, environmentId: currentEnvironmentId } = useEnvironment();
+  const environmentOptions = environments.map((e) => ({ value: e.id, label: capitalize(e.name) }));
   const isEditMode = existingFlag !== null;
 
   const [key, setKey] = useState(existingFlag?.key || "");
   const [environmentId, setEnvironmentId] = useState(
-    existingFlag?.environment_id ?? environmentIdForValue(environment)
+    existingFlag?.environment_id ?? currentEnvironmentId
   );
   const [type, setType] = useState(existingFlag?.type || "boolean");
   const [defaultValue, setDefaultValue] = useState(existingFlag?.default_value ?? false);
@@ -121,7 +122,7 @@ function FlagFormModal({ onClose, onFlagCreated, existingFlag = null }) {
               <label className="block text-sm text-gray-600 mb-1">Environment</label>
               <Dropdown
                 value={environmentId}
-                options={ENVIRONMENT_ID_OPTIONS}
+                options={environmentOptions}
                 onChange={(val) => setEnvironmentId(val)}
                 disabled={isEditMode}
               />

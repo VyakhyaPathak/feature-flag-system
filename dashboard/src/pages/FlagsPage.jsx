@@ -4,12 +4,11 @@ import { useEnvironment } from "../context/EnvironmentContext";
 import FlagFormModal from "../components/FlagFormModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ToggleRight, ToggleLeft, ListChecks, Search, Trash2 } from "lucide-react";
-import { environmentIdForValue } from "../constants/environments";
 import { getErrorMessage } from "../utils/apiErrors";
 import { capitalize } from "../utils/format";
 
 function FlagsPage() {
-  const { environment } = useEnvironment();
+  const { environmentId, environmentName } = useEnvironment();
   const navigate = useNavigate();
   const [flags, setFlags] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,9 +20,9 @@ function FlagsPage() {
   const [deleting, setDeleting] = useState(false);
 
   const fetchFlags = () => {
+    if (environmentId == null) return;
     setLoading(true);
     setFetchError(null);
-    const environmentId = environmentIdForValue(environment);
     fetch(`http://localhost:8000/flags/?environment_id=${environmentId}`)
       .then(async (res) => {
         const data = await res.json().catch(() => null);
@@ -44,7 +43,7 @@ function FlagsPage() {
   useEffect(() => {
     fetchFlags();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [environment]);
+  }, [environmentId]);
 
   useEffect(() => {
     if (toast) {
@@ -129,7 +128,7 @@ function FlagsPage() {
     <div className="p-6 relative">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-semibold brand-gradient-text capitalize">
-          Flags — {environment}
+          Flags — {environmentName || "…"}
         </h2>
         <button
           onClick={() => setShowModal(true)}
@@ -292,7 +291,7 @@ function FlagsPage() {
       {deleteTarget && (
         <ConfirmDialog
           title="Delete this flag?"
-          message={`"${deleteTarget.key}" will be permanently deleted from ${environment}. This cannot be undone.`}
+          message={`"${deleteTarget.key}" will be permanently deleted from ${environmentName}. This cannot be undone.`}
           confirmLabel="Delete"
           busy={deleting}
           onConfirm={handleDeleteConfirm}

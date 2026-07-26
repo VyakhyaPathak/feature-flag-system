@@ -1,9 +1,10 @@
 import { useEnvironment } from "../context/EnvironmentContext";
-import { ENVIRONMENT_VALUE_OPTIONS } from "../constants/environments";
+import { capitalize } from "../utils/format";
 import Dropdown from "./Dropdown";
 
 function Navbar() {
-  const { environment, setEnvironment } = useEnvironment();
+  const { environments, environmentId, setEnvironmentId, environmentsLoading } = useEnvironment();
+  const options = environments.map((e) => ({ value: e.id, label: capitalize(e.name) }));
 
   return (
     <div>
@@ -19,9 +20,11 @@ function Navbar() {
           <label className="text-gray-500 text-sm">Environment:</label>
           <Dropdown
             variant="pill"
-            value={environment}
-            options={ENVIRONMENT_VALUE_OPTIONS}
-            onChange={setEnvironment}
+            value={environmentId}
+            options={options}
+            onChange={setEnvironmentId}
+            placeholder={environmentsLoading ? "Loading..." : "Select environment..."}
+            disabled={environmentsLoading || options.length === 0}
           />
         </div>
       </div>

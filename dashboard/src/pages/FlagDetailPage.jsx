@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { Flag as FlagIcon, ListTree } from "lucide-react";
 import FlagFormModal from "../components/FlagFormModal";
 import Dropdown from "../components/Dropdown";
-import { environmentById } from "../constants/environments";
+import { colorForEnvironmentId } from "../constants/environments";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { getErrorMessage } from "../utils/apiErrors";
 import { capitalize } from "../utils/format";
@@ -26,7 +26,7 @@ function SectionBadge({ letter, color }) {
 function FlagDetailPage() {
   const { flagId } = useParams();
   const navigate = useNavigate();
-  const { environment } = useEnvironment();
+  const { environmentId: currentEnvironmentId, environments } = useEnvironment();
   const [flag, setFlag] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -149,13 +149,13 @@ function FlagDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flagId]);
 
-  const previousEnvironmentRef = useRef(environment);
+  const previousEnvironmentRef = useRef(currentEnvironmentId);
   useEffect(() => {
-    if (previousEnvironmentRef.current !== environment) {
+    if (previousEnvironmentRef.current !== currentEnvironmentId) {
       navigate("/flags");
     }
-    previousEnvironmentRef.current = environment;
-  }, [environment, navigate]);
+    previousEnvironmentRef.current = currentEnvironmentId;
+  }, [currentEnvironmentId, navigate]);
 
   const handleAddUserId = (e) => {
     e.preventDefault();
@@ -374,16 +374,14 @@ function FlagDetailPage() {
                   <dt className="text-gray-500">Environment</dt>
                   <dd className="mt-1">
                     {(() => {
-                      const env = environmentById(flag.environment_id);
+                      const env = environments.find((e) => e.id === flag.environment_id);
+                      const color = colorForEnvironmentId(flag.environment_id);
                       return (
                         <span
-                          className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
-                          style={{
-                            backgroundColor: env ? `${env.color}20` : "#e5e7eb",
-                            color: env ? env.color : "#374151",
-                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full capitalize"
+                          style={{ backgroundColor: `${color}20`, color }}
                         >
-                          {env ? env.label : `Unknown (id ${flag.environment_id})`}
+                          {env ? env.name : `Unknown (id ${flag.environment_id})`}
                         </span>
                       );
                     })()}
