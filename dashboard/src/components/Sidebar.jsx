@@ -49,7 +49,7 @@ function Sidebar() {
       </nav>
 
       <div className="mt-auto pt-6 border-t border-white/20">
-        <p className="text-[11px] text-white/60 px-1">v0.1.0 — Milestone 1</p>
+        <p className="text-[11px] text-white/60 px-1">v0.1.0 — Milestone 2</p>
       </div>
     </div>
   );

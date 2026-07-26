@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Layers, Pencil, Trash2, Plus, X } from "lucide-react";
+import { Layers, Pencil, Trash2, Plus, X, ToggleLeft } from "lucide-react";
 import Dropdown from "../components/Dropdown";
 import { getErrorMessage, throwIfNotOk } from "../utils/apiErrors";
 
@@ -9,10 +9,16 @@ function StatusPill({ status }) {
   const isActive = status === "active";
   return (
     <span
-      className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-        isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-      }`}
+      className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full"
+      style={{
+        backgroundColor: isActive ? "var(--success-bg)" : "rgba(107,114,128,0.1)",
+        color: isActive ? "var(--success)" : "#6B7280",
+      }}
     >
+      <span
+        className="w-1.5 h-1.5 rounded-full"
+        style={{ backgroundColor: isActive ? "var(--success)" : "#9CA3AF" }}
+      ></span>
       {isActive ? "Active" : "Inactive"}
     </span>
   );
@@ -42,11 +48,12 @@ function EnvironmentFormRow({ initial, onSave, onCancel }) {
   };
 
   return (
-    <tr className="bg-blue-50/40">
+    <tr style={{ backgroundColor: "rgba(51,83,158,0.04)" }}>
       <td className="px-4 py-2 text-gray-400 text-sm">{initial?.id ?? "—"}</td>
       <td className="px-4 py-2">
         <input
-          className="w-full text-sm border border-gray-300 rounded-md px-2 py-1"
+          className="w-full text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2"
+          style={{ "--tw-ring-color": "rgba(51,83,158,0.3)" }}
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. staging"
@@ -54,15 +61,14 @@ function EnvironmentFormRow({ initial, onSave, onCancel }) {
       </td>
       <td className="px-4 py-2">
         <input
-          className="w-full text-sm border border-gray-300 rounded-md px-2 py-1"
+          className="w-full text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2"
+          style={{ "--tw-ring-color": "rgba(51,83,158,0.3)" }}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Optional description"
         />
       </td>
       <td className="px-4 py-2">
-        {/* Assumption: Dropdown accepts {value,label} options + value + onChange,
-            same signature used in Navbar.jsx. Adjust if your Dropdown differs. */}
         <Dropdown
           value={status}
           options={[
@@ -77,7 +83,8 @@ function EnvironmentFormRow({ initial, onSave, onCancel }) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="text-xs font-medium text-white px-3 py-1 rounded-md brand-gradient disabled:opacity-50"
+            className="text-xs font-medium text-white px-3 py-1.5 rounded-lg hover:opacity-90 transition disabled:opacity-50"
+            style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -85,7 +92,7 @@ function EnvironmentFormRow({ initial, onSave, onCancel }) {
             <X size={16} />
           </button>
         </div>
-        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-xs mt-1" style={{ color: "var(--danger)" }}>{error}</p>}
       </td>
     </tr>
   );
@@ -95,17 +102,31 @@ function EnvironmentsTable({ environments, onCreate, onUpdate, onDelete }) {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div
+        className="h-1.5"
+        style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
+      ></div>
       <div className="flex justify-between items-center px-5 py-4 border-b border-gray-100">
-        <div>
-          <h3 className="font-semibold text-gray-900">Environments</h3>
-          <p className="text-xs text-gray-400">Manage environments and flag overrides.</p>
+        <div className="flex items-center gap-2.5">
+          <span
+            className="icon-chip w-8 h-8"
+            style={{ background: "linear-gradient(160deg, #33539E, #7FACD6)" }}
+          >
+            <Layers size={15} color="white" strokeWidth={2.4} />
+          </span>
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Environments</h3>
+            <p className="text-xs text-gray-400">Manage environments and flag overrides.</p>
+          </div>
         </div>
         <button
           onClick={() => setCreating(true)}
-          className="flex items-center gap-1.5 text-sm font-medium text-white px-3 py-1.5 rounded-lg brand-gradient"
+          className="flex items-center gap-1.5 text-sm font-medium text-white px-3 py-1.5 rounded-lg hover:opacity-90 transition shadow-sm"
+          style={{ background: "linear-gradient(135deg, #33539E, #A5678E)" }}
         >
           <Plus size={15} />
           New Environment
@@ -114,12 +135,12 @@ function EnvironmentsTable({ environments, onCreate, onUpdate, onDelete }) {
 
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-gray-400 text-xs uppercase border-b border-gray-100">
-            <th className="px-4 py-2 font-medium">ID</th>
-            <th className="px-4 py-2 font-medium">Name</th>
-            <th className="px-4 py-2 font-medium">Description</th>
-            <th className="px-4 py-2 font-medium">Status</th>
-            <th className="px-4 py-2 font-medium">Actions</th>
+          <tr className="table-header-brand text-left text-gray-500 text-xs uppercase tracking-wide border-b border-gray-100">
+            <th className="px-4 py-2.5 font-medium">ID</th>
+            <th className="px-4 py-2.5 font-medium">Name</th>
+            <th className="px-4 py-2.5 font-medium">Description</th>
+            <th className="px-4 py-2.5 font-medium">Status</th>
+            <th className="px-4 py-2.5 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -144,7 +165,7 @@ function EnvironmentsTable({ environments, onCreate, onUpdate, onDelete }) {
                 onCancel={() => setEditingId(null)}
               />
             ) : (
-              <tr key={env.id} className="border-b border-gray-50 last:border-0">
+              <tr key={env.id} className="row-hover border-b border-gray-50 last:border-0">
                 <td className="px-4 py-3 text-gray-400">{env.id}</td>
                 <td className="px-4 py-3 font-medium text-gray-800 capitalize">{env.name}</td>
                 <td className="px-4 py-3 text-gray-500">{env.description || "—"}</td>
@@ -152,38 +173,59 @@ function EnvironmentsTable({ environments, onCreate, onUpdate, onDelete }) {
                   <StatusPill status={env.status} />
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setEditingId(env.id)}
-                      className="text-gray-400 hover:text-gray-700"
-                      title="Edit"
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    {/* Assumption: no shared confirm-modal API known here, so this
-                        uses a plain window.confirm. Swap for your ConfirmDialog
-                        component if you'd rather match its pattern exactly. */}
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Delete environment "${env.name}"?`)) {
+                  {confirmDeleteId === env.id ? (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-gray-500">Delete?</span>
+                      <button
+                        onClick={() => {
                           setDeletingId(env.id);
-                          onDelete(env.id).finally(() => setDeletingId(null));
-                        }
-                      }}
-                      disabled={deletingId === env.id}
-                      className="text-gray-400 hover:text-red-500 disabled:opacity-40"
-                      title="Delete"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
+                          onDelete(env.id).finally(() => {
+                            setDeletingId(null);
+                            setConfirmDeleteId(null);
+                          });
+                        }}
+                        disabled={deletingId === env.id}
+                        className="font-medium hover:opacity-70 disabled:opacity-40"
+                        style={{ color: "var(--danger)" }}
+                      >
+                        {deletingId === env.id ? "Deleting..." : "Confirm"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setEditingId(env.id)}
+                        className="text-gray-400 transition"
+                        onMouseEnter={(e) => (e.currentTarget.style.color = "#33539E")}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = "#9CA3AF")}
+                        title="Edit"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(env.id)}
+                        className="text-gray-400 hover:text-white p-1 rounded-md transition"
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#A5678E") && (e.currentTarget.style.color = "white")}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent") && (e.currentTarget.style.color = "#9CA3AF")}
+                        title="Delete"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             )
           )}
           {environments.length === 0 && !creating && (
             <tr>
-              <td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">
+              <td colSpan={5} className="px-4 py-8 text-center text-gray-400 text-sm">
                 No environments yet — create one to get started.
               </td>
             </tr>
@@ -199,14 +241,12 @@ function OverrideToggle({ checked, onChange, disabled }) {
     <button
       onClick={() => onChange(!checked)}
       disabled={disabled}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition disabled:opacity-50 ${
-        checked ? "bg-green-500" : "bg-gray-300"
-      }`}
+      className="rounded-full transition relative disabled:opacity-50"
+      style={{ backgroundColor: checked ? "#33539E" : "#d1d5db", width: "38px", height: "21px" }}
     >
       <span
-        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${
-          checked ? "translate-x-5" : "translate-x-1"
-        }`}
+        className="block bg-white rounded-full shadow transform transition absolute top-0.5"
+        style={{ width: "17px", height: "17px", left: checked ? "18px" : "2px" }}
       />
     </button>
   );
@@ -281,9 +321,21 @@ function FlagOverridesPanel({ flagKeys }) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mt-6">
+      <div
+        className="h-1.5"
+        style={{ background: "linear-gradient(160deg, #7FACD6, #A5678E)" }}
+      ></div>
       <div className="px-5 py-4 border-b border-gray-100">
-        <h3 className="font-semibold text-gray-900">Flag Overrides by Environment</h3>
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-center gap-2.5 mb-3">
+          <span
+            className="icon-chip w-8 h-8"
+            style={{ background: "linear-gradient(160deg, #A5678E, #E8B7D4)" }}
+          >
+            <ToggleLeft size={15} color="white" strokeWidth={2.4} />
+          </span>
+          <h3 className="font-semibold text-gray-900 text-sm">Flag Overrides by Environment</h3>
+        </div>
+        <div className="flex items-center gap-2">
           <label className="text-sm text-gray-500">Select Flag:</label>
           <Dropdown
             value={selectedKey}
@@ -299,24 +351,24 @@ function FlagOverridesPanel({ flagKeys }) {
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-500 px-5 pt-3">{error}</p>}
+      {error && <p className="text-sm px-5 pt-3" style={{ color: "var(--danger)" }}>{error}</p>}
 
       {loading ? (
         <p className="text-sm text-gray-400 px-5 py-6">Loading overrides...</p>
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-gray-400 text-xs uppercase border-b border-gray-100">
-              <th className="px-5 py-2 font-medium">Environment</th>
-              <th className="px-5 py-2 font-medium">Override Value</th>
-              <th className="px-5 py-2 font-medium">Status</th>
-              <th className="px-5 py-2 font-medium">Last Updated</th>
-              <th className="px-5 py-2 font-medium">Actions</th>
+            <tr className="table-header-brand text-left text-gray-500 text-xs uppercase tracking-wide border-b border-gray-100">
+              <th className="px-5 py-2.5 font-medium">Environment</th>
+              <th className="px-5 py-2.5 font-medium">Override Value</th>
+              <th className="px-5 py-2.5 font-medium">Status</th>
+              <th className="px-5 py-2.5 font-medium">Last Updated</th>
+              <th className="px-5 py-2.5 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
             {overrides.map((o) => (
-              <tr key={o.environment_id} className="border-b border-gray-50 last:border-0">
+              <tr key={o.environment_id} className="row-hover border-b border-gray-50 last:border-0">
                 <td className="px-5 py-3 font-medium text-gray-800 capitalize">{o.environment_name}</td>
                 <td className="px-5 py-3">
                   <OverrideToggle
@@ -327,9 +379,12 @@ function FlagOverridesPanel({ flagKeys }) {
                 </td>
                 <td className="px-5 py-3">
                   <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      o.overridden ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-500"
-                    }`}
+                    className="text-xs font-medium px-2.5 py-0.5 rounded-full"
+                    style={
+                      o.overridden
+                        ? { backgroundColor: "rgba(165,103,142,0.12)", color: "#A5678E" }
+                        : { backgroundColor: "rgba(107,114,128,0.1)", color: "#6B7280" }
+                    }
                   >
                     {o.overridden ? "Overridden" : "Using Default"}
                   </span>
@@ -354,7 +409,10 @@ function FlagOverridesPanel({ flagKeys }) {
         </table>
       )}
 
-      <div className="mx-5 mb-5 mt-2 bg-blue-50 text-blue-700 text-xs rounded-lg px-4 py-3">
+      <div
+        className="mx-5 mb-5 mt-3 text-xs rounded-lg px-4 py-3"
+        style={{ backgroundColor: "rgba(51,83,158,0.06)", color: "#33539E" }}
+      >
         If an override exists for an environment, that value will be used. Otherwise, the flag's default value will be used.
       </div>
     </div>
@@ -424,7 +482,11 @@ function EnvironmentsPage() {
         <p className="text-gray-400 text-sm">Loading...</p>
       ) : (
         <>
-          {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
+          {error && (
+            <p className="text-sm mb-3 px-4 py-2 rounded-lg" style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}>
+              {error}
+            </p>
+          )}
           <EnvironmentsTable
             environments={environments}
             onCreate={handleCreate}

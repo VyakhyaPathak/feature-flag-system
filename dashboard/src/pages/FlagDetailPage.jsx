@@ -1,11 +1,27 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { Flag as FlagIcon, ListTree } from "lucide-react";
 import FlagFormModal from "../components/FlagFormModal";
 import Dropdown from "../components/Dropdown";
 import { environmentById } from "../constants/environments";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { getErrorMessage } from "../utils/apiErrors";
 import { capitalize } from "../utils/format";
+import EvaluationTestPanel from "../components/EvaluationTestPanel";
+
+// Shared "signature" badge used for A/B/C targeting sections - a colored
+// circle with a letter, echoing the numbered priority badges in the
+// Evaluation Test Panel so the two halves of this page read as one system.
+function SectionBadge({ letter, color }) {
+  return (
+    <span
+      className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white shrink-0"
+      style={{ backgroundColor: color }}
+    >
+      {letter}
+    </span>
+  );
+}
 
 function FlagDetailPage() {
   const { flagId } = useParams();
@@ -286,212 +302,170 @@ function FlagDetailPage() {
     .map((g) => ({ value: g, label: g }));
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-6">
       <Link to="/flags" className="text-sm hover:underline" style={{ color: "#33539E" }}>
         ← Back to Flags
       </Link>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-4 overflow-hidden">
-        <div
-          className="h-1"
-          style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
-        ></div>
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 font-mono">{flag.key}</h2>
-            <div className="flex items-center gap-3">
-              {flag.enabled ? (
-                <span
-                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
-                  style={{ backgroundColor: "rgba(127,172,214,0.15)", color: "#33539E" }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#33539E" }}></span>
-                  Enabled
-                </span>
-              ) : (
-                <span
-                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
-                  style={{ backgroundColor: "rgba(165,103,142,0.12)", color: "#A5678E" }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#A5678E" }}></span>
-                  Disabled
-                </span>
-              )}
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition"
-                style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
-              >
-                Edit Flag
-              </button>
+      {/* Two-column layout: targeting rules on the left, Evaluation Test
+          Panel sticky on the right - uses the empty side space instead of
+          stacking below and forcing a full-page scroll. */}
+      <div className="flex flex-col lg:flex-row items-start gap-6 mt-4">
+        {/* Left column: flag details + targeting rules */}
+        <div className="flex-1 w-full min-w-0 max-w-2xl">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div
+              className="h-1.5"
+              style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
+            ></div>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <span
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
+                  >
+                    <FlagIcon size={16} color="white" strokeWidth={2.5} />
+                  </span>
+                  <h2 className="text-xl font-semibold text-gray-900 font-mono">{flag.key}</h2>
+                </div>
+                <div className="flex items-center gap-3">
+                  {flag.enabled ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                      style={{ backgroundColor: "rgba(127,172,214,0.15)", color: "#33539E" }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#33539E" }}></span>
+                      Enabled
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                      style={{ backgroundColor: "rgba(165,103,142,0.12)", color: "#A5678E" }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#A5678E" }}></span>
+                      Disabled
+                    </span>
+                  )}
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    className="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition"
+                    style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
+                  >
+                    Edit Flag
+                  </button>
+                </div>
+              </div>
+
+              <dl className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <dt className="text-gray-500">Type</dt>
+                  <dd className="text-gray-900 mt-1">{capitalize(flag.type)}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">Default Value</dt>
+                  <dd className="text-gray-900 mt-1">{flag.default_value ? "True" : "False"}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">Owner Team</dt>
+                  <dd className="text-gray-900 mt-1">{flag.owner_team || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">Environment</dt>
+                  <dd className="mt-1">
+                    {(() => {
+                      const env = environmentById(flag.environment_id);
+                      return (
+                        <span
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                          style={{
+                            backgroundColor: env ? `${env.color}20` : "#e5e7eb",
+                            color: env ? env.color : "#374151",
+                          }}
+                        >
+                          {env ? env.label : `Unknown (id ${flag.environment_id})`}
+                        </span>
+                      );
+                    })()}
+                  </dd>
+                </div>
+                <div className="col-span-2">
+                  <dt className="text-gray-500">Description</dt>
+                  <dd className="text-gray-900 mt-1">{flag.description || "No description provided"}</dd>
+                </div>
+              </dl>
             </div>
           </div>
 
-          <dl className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <dt className="text-gray-500">Type</dt>
-              <dd className="text-gray-900 mt-1">{capitalize(flag.type)}</dd>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-4 p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <span
+                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
+              >
+                <ListTree size={14} color="white" strokeWidth={2.5} />
+              </span>
+              <h3 className="text-sm font-semibold text-gray-900">Targeting Rules</h3>
             </div>
-            <div>
-              <dt className="text-gray-500">Default Value</dt>
-              <dd className="text-gray-900 mt-1">{flag.default_value ? "True" : "False"}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-500">Owner Team</dt>
-              <dd className="text-gray-900 mt-1">{flag.owner_team || "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-500">Environment</dt>
-              <dd className="mt-1">
-                {(() => {
-                  const env = environmentById(flag.environment_id);
-                  return (
-                    <span
-                      className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
-                      style={{
-                        backgroundColor: env ? `${env.color}20` : "#e5e7eb",
-                        color: env ? env.color : "#374151",
-                      }}
-                    >
-                      {env ? env.label : `Unknown (id ${flag.environment_id})`}
-                    </span>
-                  );
-                })()}
-              </dd>
-            </div>
-            <div className="col-span-2">
-              <dt className="text-gray-500">Description</dt>
-              <dd className="text-gray-900 mt-1">{flag.description || "No description provided"}</dd>
-            </div>
-          </dl>
-        </div>
-      </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-4 p-6">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Targeting Rules</h3>
-
-        {/* A) User Whitelist */}
-        <div className="mb-6">
-          <h4 className="text-sm font-medium text-gray-800 mb-1">A) User Whitelist (User IDs)</h4>
-          <p className="text-gray-500 text-xs mb-3">
-            Users in this list will get the flag enabled.
-          </p>
-
-          {whitelistError && <p className="text-red-600 text-sm mb-3">{whitelistError}</p>}
-
-          <form onSubmit={handleAddUserId} className="flex items-start gap-2 mb-3">
-            <div className="flex-1">
-              <input
-                type="text"
-                value={newUserId}
-                onChange={(e) => {
-                  setNewUserId(e.target.value);
-                  if (addError) setAddError(null);
-                }}
-                placeholder="Enter User ID (e.g. 101)"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                style={{ "--tw-ring-color": "#33539E" }}
-                disabled={adding}
-              />
-              {addError && <p className="text-red-600 text-xs mt-1">{addError}</p>}
-            </div>
-            <button
-              type="submit"
-              disabled={adding}
-              className="px-3 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
-              style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
-            >
-              {adding ? "Adding..." : "Add"}
-            </button>
-          </form>
-
-          {whitelistLoading ? (
-            <p className="text-gray-400 text-sm">Loading...</p>
-          ) : whitelist.length === 0 ? (
-            <p className="text-gray-400 text-sm italic">
-              No targeting rules yet. All users get the default value.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {whitelist.map((userId) => (
-                <span
-                  key={userId}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono"
-                  style={{ backgroundColor: "rgba(51,83,158,0.08)", color: "#33539E" }}
-                >
-                  {userId}
-                  <button
-                    onClick={() => handleRemoveUserId(userId)}
-                    disabled={removingId === userId}
-                    className="hover:opacity-70 disabled:opacity-40"
-                    aria-label={`Remove user ${userId}`}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* B) Group Targeting */}
-        <div className="border-t border-gray-100 pt-5 mb-6">
-          <h4 className="text-sm font-medium text-gray-800 mb-1">
-            B) Group Targeting (Users in selected groups)
-          </h4>
-          <p className="text-gray-500 text-xs mb-3">
-            Users who belong to any of these groups will get the flag enabled.
-          </p>
-
-          {groupsError && <p className="text-red-600 text-sm mb-3">{groupsError}</p>}
-
-          {groupsLoading ? (
-            <p className="text-gray-400 text-sm">Loading...</p>
-          ) : (
-            <>
-              <div className="mb-3">
-                {availableGroups.length === 0 ? (
-                  <p className="text-gray-400 text-xs italic">
-                    No groups exist yet in user_group_memberships. Add group memberships in the
-                    database to make them selectable here.
-                  </p>
-                ) : groupOptions.length === 0 ? (
-                  <p className="text-gray-400 text-xs italic">
-                    All available groups are already selected for this flag.
-                  </p>
-                ) : (
-                  <Dropdown
-                    value={groupToAdd}
-                    options={groupOptions}
-                    onChange={(val) => {
-                      setGroupToAdd(val);
-                      handleAddGroup(val);
-                    }}
-                    placeholder={addingGroup ? "Adding..." : "Select groups..."}
-                    disabled={addingGroup}
-                  />
-                )}
-                {addGroupError && <p className="text-red-600 text-xs mt-1">{addGroupError}</p>}
+            {/* A) User Whitelist */}
+            <div className="mb-5 rounded-lg p-4" style={{ backgroundColor: "rgba(51,83,158,0.04)", borderLeft: "3px solid #33539E" }}>
+              <div className="flex items-center gap-2 mb-1">
+                <SectionBadge letter="A" color="#33539E" />
+                <h4 className="text-sm font-medium text-gray-800">User Whitelist (User IDs)</h4>
               </div>
+              <p className="text-gray-500 text-xs mb-3">
+                Users in this list will get the flag enabled.
+              </p>
 
-              {selectedGroups.length === 0 ? (
+              {whitelistError && <p className="text-red-600 text-sm mb-3">{whitelistError}</p>}
+
+              <form onSubmit={handleAddUserId} className="flex items-start gap-2 mb-3">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={newUserId}
+                    onChange={(e) => {
+                      setNewUserId(e.target.value);
+                      if (addError) setAddError(null);
+                    }}
+                    placeholder="Enter User ID (e.g. 101)"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                    style={{ "--tw-ring-color": "#33539E" }}
+                    disabled={adding}
+                  />
+                  {addError && <p className="text-red-600 text-xs mt-1">{addError}</p>}
+                </div>
+                <button
+                  type="submit"
+                  disabled={adding}
+                  className="px-3 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+                  style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
+                >
+                  {adding ? "Adding..." : "Add"}
+                </button>
+              </form>
+
+              {whitelistLoading ? (
+                <p className="text-gray-400 text-sm">Loading...</p>
+              ) : whitelist.length === 0 ? (
                 <p className="text-gray-400 text-sm italic">
-                  No groups selected. Group membership won't grant this flag.
+                  No targeting rules yet. All users get the default value.
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {selectedGroups.map((groupName) => (
+                  {whitelist.map((userId) => (
                     <span
-                      key={groupName}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs"
-                      style={{ backgroundColor: "rgba(165,103,142,0.1)", color: "#A5678E" }}
+                      key={userId}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono"
+                      style={{ backgroundColor: "rgba(51,83,158,0.08)", color: "#33539E" }}
                     >
-                      {groupName}
+                      {userId}
                       <button
-                        onClick={() => handleRemoveGroup(groupName)}
-                        disabled={removingGroup === groupName}
+                        onClick={() => handleRemoveUserId(userId)}
+                        disabled={removingId === userId}
                         className="hover:opacity-70 disabled:opacity-40"
-                        aria-label={`Remove group ${groupName}`}
+                        aria-label={`Remove user ${userId}`}
                       >
                         ×
                       </button>
@@ -499,69 +473,163 @@ function FlagDetailPage() {
                   ))}
                 </div>
               )}
+            </div>
 
-              <p className="text-gray-400 text-xs mt-3">
-                Users in ANY selected group will get the flag enabled.
+            {/* B) Group Targeting */}
+            <div className="mb-5 rounded-lg p-4" style={{ backgroundColor: "rgba(165,103,142,0.05)", borderLeft: "3px solid #A5678E" }}>
+              <div className="flex items-center gap-2 mb-1">
+                <SectionBadge letter="B" color="#A5678E" />
+                <h4 className="text-sm font-medium text-gray-800">
+                  Group Targeting (Users in selected groups)
+                </h4>
+              </div>
+              <p className="text-gray-500 text-xs mb-3">
+                Users who belong to any of these groups will get the flag enabled.
               </p>
-            </>
-          )}
+
+              {groupsError && <p className="text-red-600 text-sm mb-3">{groupsError}</p>}
+
+              {groupsLoading ? (
+                <p className="text-gray-400 text-sm">Loading...</p>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    {availableGroups.length === 0 ? (
+                      <p className="text-gray-400 text-xs italic">
+                        No groups exist yet in user_group_memberships. Add group memberships in the
+                        database to make them selectable here.
+                      </p>
+                    ) : groupOptions.length === 0 ? (
+                      <p className="text-gray-400 text-xs italic">
+                        All available groups are already selected for this flag.
+                      </p>
+                    ) : (
+                      <Dropdown
+                        value={groupToAdd}
+                        options={groupOptions}
+                        onChange={(val) => {
+                          setGroupToAdd(val);
+                          handleAddGroup(val);
+                        }}
+                        placeholder={addingGroup ? "Adding..." : "Select groups..."}
+                        disabled={addingGroup}
+                      />
+                    )}
+                    {addGroupError && <p className="text-red-600 text-xs mt-1">{addGroupError}</p>}
+                  </div>
+
+                  {selectedGroups.length === 0 ? (
+                    <p className="text-gray-400 text-sm italic">
+                      No groups selected. Group membership won't grant this flag.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedGroups.map((groupName) => (
+                        <span
+                          key={groupName}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs"
+                          style={{ backgroundColor: "rgba(165,103,142,0.1)", color: "#A5678E" }}
+                        >
+                          {groupName}
+                          <button
+                            onClick={() => handleRemoveGroup(groupName)}
+                            disabled={removingGroup === groupName}
+                            className="hover:opacity-70 disabled:opacity-40"
+                            aria-label={`Remove group ${groupName}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <p className="text-gray-400 text-xs mt-3">
+                    Users in ANY selected group will get the flag enabled.
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* C) Percentage Rollout */}
+            <div className="rounded-lg p-4" style={{ backgroundColor: "rgba(124,106,174,0.06)", borderLeft: "3px solid #7C6AAE" }}>
+              <div className="flex items-center gap-2 mb-1">
+                <SectionBadge letter="C" color="#7C6AAE" />
+                <h4 className="text-sm font-medium text-gray-800">Percentage Rollout</h4>
+              </div>
+              <p className="text-gray-500 text-xs mb-3">
+                Gradually enable this flag for a percentage of users.
+              </p>
+
+              {rolloutError && <p className="text-red-600 text-sm mb-3">{rolloutError}</p>}
+
+              {rolloutLoading ? (
+                <p className="text-gray-400 text-sm">Loading...</p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium" style={{ color: "#33539E" }}>
+                      Enabled for {rolloutPercentage}% of users.
+                      {savingRollout && <span className="text-gray-400 font-normal"> Saving...</span>}
+                    </p>
+                    <span
+                      className="text-xs font-semibold px-2 py-1 rounded-lg border"
+                      style={{ color: "#33539E", borderColor: "#33539E" }}
+                    >
+                      {rolloutPercentage}%
+                    </span>
+                  </div>
+
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={rolloutPercentage}
+                    onChange={(e) => setRolloutPercentage(Number(e.target.value))}
+                    onMouseUp={(e) => saveRollout(Number(e.target.value))}
+                    onTouchEnd={(e) => saveRollout(Number(e.target.value))}
+                    onKeyUp={(e) => saveRollout(Number(e.target.value))}
+                    disabled={savingRollout}
+                    className="w-full accent-[#33539E]"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>0%</span>
+                    <span>100%</span>
+                  </div>
+
+                  <div
+                    className="mt-4 text-xs rounded-lg px-3 py-2"
+                    style={{ backgroundColor: "rgba(51,83,158,0.06)", color: "#33539E" }}
+                  >
+                    Users are placed into a 0–100 bucket using a deterministic hash of their user ID
+                    and this flag's key. Users with a bucket below {rolloutPercentage} will see the
+                    enabled value. Changes take effect immediately — no redeploy needed.
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
+        {/* End left column */}
 
-        {/* C) Percentage Rollout */}
-        <div className="border-t border-gray-100 pt-5">
-          <h4 className="text-sm font-medium text-gray-800 mb-1">C) Percentage Rollout</h4>
-          <p className="text-gray-500 text-xs mb-3">
-            Gradually enable this flag for a percentage of users.
-          </p>
-
-          {rolloutError && <p className="text-red-600 text-sm mb-3">{rolloutError}</p>}
-
-          {rolloutLoading ? (
-            <p className="text-gray-400 text-sm">Loading...</p>
-          ) : (
-            <>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium" style={{ color: "#33539E" }}>
-                  Enabled for {rolloutPercentage}% of users.
-                  {savingRollout && <span className="text-gray-400 font-normal"> Saving...</span>}
-                </p>
-                <span
-                  className="text-xs font-semibold px-2 py-1 rounded-lg border"
-                  style={{ color: "#33539E", borderColor: "#33539E" }}
-                >
-                  {rolloutPercentage}%
-                </span>
-              </div>
-
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={rolloutPercentage}
-                onChange={(e) => setRolloutPercentage(Number(e.target.value))}
-                onMouseUp={(e) => saveRollout(Number(e.target.value))}
-                onTouchEnd={(e) => saveRollout(Number(e.target.value))}
-                onKeyUp={(e) => saveRollout(Number(e.target.value))}
-                disabled={savingRollout}
-                className="w-full accent-[#33539E]"
-              />
-              <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>0%</span>
-                <span>100%</span>
-              </div>
-
+        {/* Right column: Evaluation Test Panel, sticky so it stays in view
+            using the empty space beside the (narrower) left column instead
+            of stacking below it and forcing a page-length scroll. */}
+        {flag && (
+          <div className="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-6">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div
-                className="mt-4 text-xs rounded-lg px-3 py-2"
-                style={{ backgroundColor: "rgba(51,83,158,0.06)", color: "#33539E" }}
-              >
-                Users are placed into a 0–100 bucket using a deterministic hash of their user ID
-                and this flag's key. Users with a bucket below {rolloutPercentage} will see the
-                enabled value. Changes take effect immediately — no redeploy needed.
+                className="h-1.5"
+                style={{ background: "linear-gradient(160deg, #33539E, #A5678E)" }}
+              ></div>
+              <div className="p-6">
+                <EvaluationTestPanel flagKey={flag.key} defaultEnvironmentId={flag.environment_id} />
               </div>
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
       </div>
+      {/* End two-column layout */}
 
       {showEditModal && (
         <FlagFormModal

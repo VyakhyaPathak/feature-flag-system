@@ -9,16 +9,30 @@ html, body, #root {
 
 body {
   background: linear-gradient(160deg, #f4f6fb 0%, #f7f2f7 50%, #faf4f8 100%);
+  background-attachment: fixed;
 }
 
 :root {
-  --brand-1: #33539E;
-  --brand-2: #7FACD6;
-  --brand-3: #BFB8DA;
-  --brand-4: #E8B7D4;
-  --brand-5: #A5678E;
+  /* Core brand ramp */
+  --brand-1: #33539E; /* indigo */
+  --brand-2: #7FACD6; /* sky */
+  --brand-3: #BFB8DA; /* lavender */
+  --brand-4: #E8B7D4; /* pink */
+  --brand-5: #A5678E; /* mauve */
+
+  /* Functional colors, tinted to sit comfortably next to the brand ramp */
+  --success: #1F9D6C;
+  --success-bg: rgba(31, 157, 108, 0.1);
+  --success-border: rgba(31, 157, 108, 0.25);
+  --danger: #C4436B;
+  --danger-bg: rgba(196, 67, 107, 0.1);
+  --danger-border: rgba(196, 67, 107, 0.25);
+  --warning: #C08A2E;
+  --warning-bg: rgba(192, 138, 46, 0.1);
+  --surface-border: rgba(51, 83, 158, 0.12);
 }
 
+/* ---- Brand gradient utilities ---- */
 .brand-gradient {
   background: linear-gradient(135deg, var(--brand-1), var(--brand-3) 50%, var(--brand-5));
 }
@@ -34,17 +48,67 @@ body {
   border-image: linear-gradient(135deg, var(--brand-1), var(--brand-5)) 1;
 }
 
+/* ---- Stat / info cards ---- */
 .brand-card-1 {
-  background: linear-gradient(135deg, rgba(51, 83, 158, 0.06), rgba(127, 172, 214, 0.06));
-  border-color: rgba(51, 83, 158, 0.15);
+  background: linear-gradient(135deg, rgba(51, 83, 158, 0.08), rgba(127, 172, 214, 0.08));
+  border-color: rgba(51, 83, 158, 0.18);
 }
 
 .brand-card-2 {
-  background: linear-gradient(135deg, rgba(191, 184, 218, 0.15), rgba(232, 183, 212, 0.15));
-  border-color: rgba(191, 184, 218, 0.3);
+  background: linear-gradient(135deg, rgba(127, 172, 214, 0.12), rgba(191, 184, 218, 0.14));
+  border-color: rgba(127, 172, 214, 0.3);
 }
 
 .brand-card-3 {
-  background: linear-gradient(135deg, rgba(232, 183, 212, 0.15), rgba(165, 103, 142, 0.1));
-  border-color: rgba(165, 103, 142, 0.2);
+  background: linear-gradient(135deg, rgba(232, 183, 212, 0.16), rgba(165, 103, 142, 0.12));
+  border-color: rgba(165, 103, 142, 0.25);
+}
+
+.icon-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 10px -2px rgba(51, 83, 158, 0.35);
+  flex-shrink: 0;
+}
+
+/* ---- Motion / hover ---- */
+.card-hover {
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.card-hover:hover {
+  box-shadow: 0 10px 28px -10px rgba(51, 83, 158, 0.3);
+  transform: translateY(-2px);
+}
+
+.row-hover {
+  transition: background-color 0.15s ease;
+}
+
+.row-hover:hover {
+  background: linear-gradient(90deg, rgba(51, 83, 158, 0.045), rgba(165, 103, 142, 0.035));
+}
+
+/* ---- Table header gradient (shared by Flags / Environments tables) ---- */
+.table-header-brand {
+  background: linear-gradient(135deg, rgba(51, 83, 158, 0.06), rgba(165, 103, 142, 0.06));
+}
+
+/* ---- Scrollbar polish (webkit) ---- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(51, 83, 158, 0.35), rgba(165, 103, 142, 0.35));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }

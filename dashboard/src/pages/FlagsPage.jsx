@@ -43,6 +43,7 @@ function FlagsPage() {
 
   useEffect(() => {
     fetchFlags();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [environment]);
 
   useEffect(() => {
@@ -132,44 +133,53 @@ function FlagsPage() {
         </h2>
         <button
           onClick={() => setShowModal(true)}
-          className="text-white px-4 py-2 rounded-lg text-sm font-medium transition hover:opacity-90"
+          className="text-white px-4 py-2 rounded-lg text-sm font-medium transition hover:opacity-90 shadow-sm"
           style={{ background: "linear-gradient(135deg, #33539E, #A5678E)" }}
         >
           + Create Flag
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
-  <div className="brand-card-1 rounded-xl border shadow-sm p-4 flex items-center gap-3">
-    <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
-      <ListChecks size={18} style={{ color: "#33539E" }} />
-    </div>
-    <div>
-      <p className="text-2xl font-semibold text-gray-900">{flags.length}</p>
-      <p className="text-xs text-gray-500">Total Flags</p>
-    </div>
-  </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="brand-card-1 card-hover rounded-xl border shadow-sm p-4 flex items-center gap-3">
+          <div
+            className="icon-chip w-11 h-11"
+            style={{ background: "linear-gradient(160deg, #33539E, #7FACD6)" }}
+          >
+            <ListChecks size={19} color="white" strokeWidth={2.2} />
+          </div>
+          <div>
+            <p className="text-2xl font-semibold text-gray-900">{flags.length}</p>
+            <p className="text-xs text-gray-500">Total Flags</p>
+          </div>
+        </div>
 
-  <div className="brand-card-2 rounded-xl border shadow-sm p-4 flex items-center gap-3">
-    <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
-      <ToggleRight size={18} style={{ color: "#7FACD6" }} />
-    </div>
-    <div>
-      <p className="text-2xl font-semibold text-gray-900">{enabledCount}</p>
-      <p className="text-xs text-gray-500">Enabled</p>
-    </div>
-  </div>
+        <div className="brand-card-2 card-hover rounded-xl border shadow-sm p-4 flex items-center gap-3">
+          <div
+            className="icon-chip w-11 h-11"
+            style={{ background: "linear-gradient(160deg, #7FACD6, #BFB8DA)" }}
+          >
+            <ToggleRight size={19} color="white" strokeWidth={2.2} />
+          </div>
+          <div>
+            <p className="text-2xl font-semibold text-gray-900">{enabledCount}</p>
+            <p className="text-xs text-gray-500">Enabled</p>
+          </div>
+        </div>
 
-  <div className="brand-card-3 rounded-xl border shadow-sm p-4 flex items-center gap-3">
-    <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
-      <ToggleLeft size={18} style={{ color: "#A5678E" }} />
-    </div>
-    <div>
-      <p className="text-2xl font-semibold text-gray-900">{disabledCount}</p>
-      <p className="text-xs text-gray-500">Disabled</p>
-    </div>
-  </div>
-</div>
+        <div className="brand-card-3 card-hover rounded-xl border shadow-sm p-4 flex items-center gap-3">
+          <div
+            className="icon-chip w-11 h-11"
+            style={{ background: "linear-gradient(160deg, #E8B7D4, #A5678E)" }}
+          >
+            <ToggleLeft size={19} color="white" strokeWidth={2.2} />
+          </div>
+          <div>
+            <p className="text-2xl font-semibold text-gray-900">{disabledCount}</p>
+            <p className="text-xs text-gray-500">Disabled</p>
+          </div>
+        </div>
+      </div>
 
       <div className="relative mb-4 max-w-xs">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -178,15 +188,15 @@ function FlagsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search flags..."
-          className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2"
+          style={{ "--tw-ring-color": "rgba(51,83,158,0.3)" }}
         />
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
         <table className="w-full text-left">
           <thead>
-            <tr className="border-b border-gray-200 text-gray-600 text-sm"
-            style={{ background: "linear-gradient(135deg, rgba(51,83,158,0.04), rgba(165,103,142,0.04))" }}>
+            <tr className="table-header-brand border-b border-gray-200 text-gray-600 text-sm">
               <th className="px-6 py-3 font-medium">Key</th>
               <th className="px-6 py-3 font-medium">Type</th>
               <th className="px-6 py-3 font-medium">Status</th>
@@ -208,31 +218,46 @@ function FlagsPage() {
                 <tr
                   key={flag.id}
                   onClick={() => navigate(`/flags/${flag.id}`)}
-                  className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition cursor-pointer"
+                  className="row-hover border-b border-gray-100 last:border-0 cursor-pointer"
                 >
                   <td className="px-6 py-4 text-gray-900 font-mono text-sm">{flag.key}</td>
-                  <td className="px-6 py-4 text-gray-600 text-sm">{capitalize(flag.type)}</td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={(e) => handleToggle(flag, e)}
-                      className="w-10 h-5.5 rounded-full transition relative"
-                      style={{
-                        backgroundColor: flag.enabled ? "#33539E" : "#d1d5db",
-                        width: "40px",
-                        height: "22px",
-                      }}
+                  <td className="px-6 py-4 text-gray-600 text-sm">
+                    <span
+                      className="text-xs font-medium px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: "rgba(127,172,214,0.16)", color: "#33539E" }}
                     >
-                      <span
-                        className="block bg-white rounded-full shadow transform transition absolute top-0.5"
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          left: flag.enabled ? "20px" : "2px",
-                        }}
-                      />
-                    </button>
+                      {capitalize(flag.type)}
+                    </span>
                   </td>
-                  <td className="px-6 py-4 text-gray-600 text-sm">{flag.owner_team}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => handleToggle(flag, e)}
+                        className="rounded-full transition relative"
+                        style={{
+                          backgroundColor: flag.enabled ? "#33539E" : "#d1d5db",
+                          width: "40px",
+                          height: "22px",
+                        }}
+                      >
+                        <span
+                          className="block bg-white rounded-full shadow transform transition absolute top-0.5"
+                          style={{
+                            width: "18px",
+                            height: "18px",
+                            left: flag.enabled ? "20px" : "2px",
+                          }}
+                        />
+                      </button>
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: flag.enabled ? "var(--success)" : "#9CA3AF" }}
+                      >
+                        {flag.enabled ? "Live" : "Off"}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 text-sm">{flag.owner_team || "—"}</td>
                   <td className="px-6 py-4 text-right">
                     <button
                       onClick={(e) => {
