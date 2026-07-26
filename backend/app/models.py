@@ -20,9 +20,9 @@ class Flag(Base):
     __tablename__ = "flags"
 
     id = Column(Integer, primary_key=True, index=True)
-    key = Column(String(100), nullable=False, index=True)  # e.g. "ai_photo_editor"
+    key = Column(String(100), nullable=False, index=True)
     environment_id = Column(Integer, ForeignKey("environments.id"), nullable=False, index=True)
-    type = Column(String(20), nullable=False, default="boolean")  # boolean, string, number
+    type = Column(String(20), nullable=False, default="boolean")
     default_value = Column(JSON, nullable=False, default=False)
     enabled = Column(Boolean, default=False)
     description = Column(Text, nullable=True)
@@ -31,9 +31,8 @@ class Flag(Base):
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
     environment = relationship("Environment", back_populates="flags")
-    versions = relationship("FlagVersion", back_populates="flag")
-    targeting_rules = relationship("TargetingRule", back_populates="flag")
-
+    versions = relationship("FlagVersion", back_populates="flag", cascade="all, delete-orphan")
+    targeting_rules = relationship("TargetingRule", back_populates="flag", cascade="all, delete-orphan")
 
 class FlagVersion(Base):
     __tablename__ = "flag_versions"

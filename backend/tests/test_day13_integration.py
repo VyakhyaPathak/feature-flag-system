@@ -8,11 +8,13 @@ Validation" panel of the milestone slide - plus a full end-to-end demo
 walkthrough matching "3) Full Demo Walkthrough".
 
 Priority order under test (highest -> lowest), matching
-app/evaluation_engine.py's documented behavior:
-    environment_override > user_whitelist > group_targeting >
-    percentage_rollout > default_value
-Environment override is a manual kill switch and beats everything,
-including a disabled flag - see evaluate_flag()'s docstring for why.
+app/evaluation_engine.py's documented behavior and the task spec:
+    user_whitelist > group_targeting > percentage_rollout >
+    environment_override > default_value
+Environment override still beats a disabled or nonexistent flag (there's
+no targeting rule to compete with in that case), and still catches any
+user who isn't specifically targeted - see evaluate_flag()'s docstring
+for the full breakdown.
 
 Run with: pytest test_day13_integration.py -v
 """

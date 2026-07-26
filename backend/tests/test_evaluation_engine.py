@@ -438,9 +438,13 @@ def test_override_enables_flag_that_is_disabled(db, cleanup_test_flags):
     assert result["reason"] == "environment_override"
 
 
-def test_override_disables_flag_that_is_enabled(db, cleanup_test_flags):
-    """Case 20: An override can also force a flag OFF even if it's enabled
-    and every targeting rule would otherwise pass for this user."""
+def test_whitelist_takes_priority_over_environment_override(db, cleanup_test_flags):
+    """Case 20 (corrected): Per the spec's evaluation order - user targeting
+    > group targeting > percentage rollout > environment override > default -
+    a specific user-whitelist match outranks a blanket environment override.
+    The override still catches everyone who ISN'T specifically targeted (see
+    the assertion below, and the disabled-flag override tests above), it's
+    just no longer stronger than a deliberate per-user targeting rule."""
     flag = models.Flag(
         key="test_override_off_flag", environment_id=1, type="boolean",
         default_value=True, enabled=True
@@ -458,10 +462,15 @@ def test_override_disables_flag_that_is_enabled(db, cleanup_test_flags):
     db.add_all([whitelist_rule, override])
     db.commit()
 
+    # The whitelisted user is targeted specifically -> wins over the override.
     result = evaluate_flag(db, "test_override_off_flag", environment_id=1, user_context={"user_id": 90009})
+    assert result["value"] is True
+    assert result["reason"] == "user_whitelisted"
 
-    assert result["value"] is False
-    assert result["reason"] == "environment_override"
+    # A user NOT on the whitelist still gets the override's forced-off value.
+    result_other_user = evaluate_flag(db, "test_override_off_flag", environment_id=1, user_context={"user_id": 12345})
+    assert result_other_user["value"] is False
+    assert result_other_user["reason"] == "environment_override"
 
 
 def test_override_only_applies_to_its_own_environment(db, cleanup_test_flags):

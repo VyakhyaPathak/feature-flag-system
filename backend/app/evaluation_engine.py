@@ -29,14 +29,18 @@ def compute_rollout_bucket(user_id, flag_key: str) -> int:
 
 
 # ---- Day 11: human-readable labels for the Evaluation Test Panel's
-# "Priority Check" list. Order here matches the REAL evaluation order below
-# (environment override first), not the illustrative mockup order - see
-# note above about why override outranks whitelist/group/rollout.
+# "Priority Check" list. Order here matches the REAL evaluation order below:
+# user_whitelist -> group_targeting -> percentage_rollout ->
+# environment_override -> default_value, per the task spec's documented
+# priority order. (A prior revision checked environment_override first/
+# highest - that let a blanket environment override silently beat a
+# specific user/group targeting match, which doesn't match the spec and
+# isn't what you'd want from a "target these specific beta testers" rule.)
 _RULE_LABELS = {
-    "environment_override": "Environment Override",
     "user_whitelist": "User Targeting",
     "group_targeting": "Group Targeting",
     "percentage_rollout": "Percentage Rollout",
+    "environment_override": "Environment Override",
     "default_value": "Default Value",
 }
 
@@ -49,16 +53,37 @@ def evaluate_flag(
     groups_override: list[str] = None,
 ):
     """
-    Priority order (highest to lowest):
-    0. Environment override (Day 10) - manual kill switch, beats everything
-       including a disabled flag.
-    1. Flag doesn't exist -> value=None, reason="flag_not_found"
-    2. Flag disabled -> default_value, reason="flag_disabled"
-    3. User whitelist match -> True, reason="user_whitelisted"
-    4. Group targeting match -> True, reason="group_targeted"
-    5. Percentage rollout match -> True, reason="percentage_rollout"
-    6. A rule existed but none matched -> default_value, reason="no_rule_matched"
-    7. No rules configured at all -> True for boolean flags, reason="flag_enabled"
+    Priority order (highest to lowest), matching the task spec:
+        user targeting -> group targeting -> percentage rollout ->
+        environment override -> default value
+
+    Two gating states sit "above" that list because they short-circuit it
+    entirely rather than competing within it:
+      - Flag doesn't exist: no Flag row means no targeting rules can even
+        be looked up, so user/group/percentage are all skipped. An
+        environment override can still apply here (useful for forcing a
+        flag on/off in an environment before the Flag row is created
+        there - see the Day 13 demo, where Dev/Staging are forced on via
+        override alone). Otherwise -> value=None, reason="flag_not_found".
+      - Flag is disabled: a disabled flag is "off" by definition, so
+        user/group/percentage targeting don't apply (there's nothing to
+        target - the feature is off). An environment override is still
+        checked and can force it back on (manual kill-switch/override
+        pattern). Otherwise -> default_value, reason="flag_disabled".
+
+    Once a flag exists and is enabled, the real priority order applies:
+        1. User whitelist match -> True, reason="user_whitelisted"
+        2. Group targeting match -> True, reason="group_targeted"
+        3. Percentage rollout match -> True, reason="percentage_rollout"
+        4. Environment override set -> override value, reason="environment_override"
+        5. A rule existed but none matched -> default_value, reason="no_rule_matched"
+        6. No rules configured at all -> True for boolean flags, reason="flag_enabled"
+
+    Note the trade-off this implies: a targeted whitelist/group/rollout
+    match now wins over a blanket environment override. An override still
+    catches everyone who ISN'T specifically targeted, and still overrides
+    a disabled flag - it's just no longer stronger than a specific,
+    intentional targeting rule on an enabled flag.
 
     Day 11 additions (purely additive - "flag_key"/"value"/"reason" keys are
     unchanged, so this stays backward compatible with every Milestone 1/2
@@ -83,34 +108,49 @@ def evaluate_flag(
         for rule in rules:
             add(rule, "skipped")
 
-    override = db.query(models.FlagOverride).filter(
-        models.FlagOverride.flag_key == flag_key,
-        models.FlagOverride.environment_id == environment_id
-    ).first()
-    if override is not None:
-        detail = f"An environment override is set to {'ON' if override.enabled else 'OFF'} here."
-        add("environment_override", "matched", detail)
-        skip("user_whitelist", "group_targeting", "percentage_rollout", "default_value")
-        return {
-            "flag_key": flag_key, "value": override.enabled, "reason": "environment_override",
-            "detail": detail, "priority_trace": trace,
-        }
-    add("environment_override", "no_match", "No override is set for this flag in this environment.")
+    def check_override():
+        return db.query(models.FlagOverride).filter(
+            models.FlagOverride.flag_key == flag_key,
+            models.FlagOverride.environment_id == environment_id
+        ).first()
 
     flag = db.query(models.Flag).filter(
         models.Flag.key == flag_key,
         models.Flag.environment_id == environment_id
     ).first()
 
+    # ---- Gate 1: flag doesn't exist at all ----
     if flag is None:
+        skip("user_whitelist", "group_targeting", "percentage_rollout")
+        override = check_override()
+        if override is not None:
+            detail = f"An environment override is set to {'ON' if override.enabled else 'OFF'} here."
+            add("environment_override", "matched", detail)
+            skip("default_value")
+            return {
+                "flag_key": flag_key, "value": override.enabled, "reason": "environment_override",
+                "detail": detail, "priority_trace": trace,
+            }
+        add("environment_override", "no_match", "No override is set for this flag in this environment.")
         return {
             "flag_key": flag_key, "value": None, "reason": "flag_not_found",
             "detail": f"No flag found with key '{flag_key}' in this environment.",
             "priority_trace": trace,
         }
 
+    # ---- Gate 2: flag exists but is disabled ----
     if not flag.enabled:
         skip("user_whitelist", "group_targeting", "percentage_rollout")
+        override = check_override()
+        if override is not None:
+            detail = f"An environment override is set to {'ON' if override.enabled else 'OFF'} here, overriding the disabled flag."
+            add("environment_override", "matched", detail)
+            skip("default_value")
+            return {
+                "flag_key": flag_key, "value": override.enabled, "reason": "environment_override",
+                "detail": detail, "priority_trace": trace,
+            }
+        add("environment_override", "no_match", "No override is set for this flag in this environment.")
         detail = "The flag is disabled, so its default value is returned regardless of any rule."
         add("default_value", "matched", detail)
         return {
@@ -118,8 +158,10 @@ def evaluate_flag(
             "detail": detail, "priority_trace": trace,
         }
 
+    # ---- Flag exists and is enabled: real priority order applies ----
     user_id = _parse_user_id(user_context)
 
+    # 1. User whitelist
     whitelist_rule = db.query(models.TargetingRule).filter(
         models.TargetingRule.flag_id == flag.id,
         models.TargetingRule.rule_type == "user_whitelist"
@@ -140,12 +182,13 @@ def evaluate_flag(
         add("user_whitelist", "skipped", "No user whitelist rule is configured for this flag.")
 
     if whitelist_matched:
-        skip("group_targeting", "percentage_rollout", "default_value")
+        skip("group_targeting", "percentage_rollout", "environment_override", "default_value")
         return {
             "flag_key": flag_key, "value": True, "reason": "user_whitelisted",
-            "detail": trace[1]["detail"], "priority_trace": trace,
+            "detail": detail, "priority_trace": trace,
         }
 
+    # 2. Group targeting
     group_rule = db.query(models.TargetingRule).filter(
         models.TargetingRule.flag_id == flag.id,
         models.TargetingRule.rule_type == "group_whitelist"
@@ -172,12 +215,13 @@ def evaluate_flag(
         add("group_targeting", "skipped", "No group targeting rule is configured for this flag.")
 
     if group_matched:
-        skip("percentage_rollout", "default_value")
+        skip("percentage_rollout", "environment_override", "default_value")
         return {
             "flag_key": flag_key, "value": True, "reason": "group_targeted",
-            "detail": trace[2]["detail"], "priority_trace": trace,
+            "detail": detail, "priority_trace": trace,
         }
 
+    # 3. Percentage rollout
     percentage_rule = db.query(models.TargetingRule).filter(
         models.TargetingRule.flag_id == flag.id,
         models.TargetingRule.rule_type == "percentage_rollout"
@@ -201,12 +245,25 @@ def evaluate_flag(
         add("percentage_rollout", "skipped", "No percentage rollout rule is configured for this flag.")
 
     if percentage_matched:
-        add("default_value", "skipped")
+        skip("environment_override", "default_value")
         return {
             "flag_key": flag_key, "value": True, "reason": "percentage_rollout",
-            "detail": trace[3]["detail"], "priority_trace": trace,
+            "detail": detail, "priority_trace": trace,
         }
 
+    # 4. Environment override (checked only once nothing more specific matched)
+    override = check_override()
+    if override is not None:
+        detail = f"An environment override is set to {'ON' if override.enabled else 'OFF'} here."
+        add("environment_override", "matched", detail)
+        skip("default_value")
+        return {
+            "flag_key": flag_key, "value": override.enabled, "reason": "environment_override",
+            "detail": detail, "priority_trace": trace,
+        }
+    add("environment_override", "no_match", "No override is set for this flag in this environment.")
+
+    # 5/6. Default value fallback
     if whitelist_rule is not None or group_rule is not None or percentage_rule is not None:
         detail = "A targeting rule is configured but none matched this user, so the default value is returned."
         add("default_value", "matched", detail)
