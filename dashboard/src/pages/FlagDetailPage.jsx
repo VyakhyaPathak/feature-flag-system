@@ -149,13 +149,17 @@ function FlagDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flagId]);
 
-  const previousEnvironmentRef = useRef(currentEnvironmentId);
-  useEffect(() => {
-    if (previousEnvironmentRef.current !== currentEnvironmentId) {
-      navigate("/flags");
-    }
-    previousEnvironmentRef.current = currentEnvironmentId;
-  }, [currentEnvironmentId, navigate]);
+  const previousEnvironmentRef = useRef(undefined);
+useEffect(() => {
+  if (currentEnvironmentId == null) return; // context hasn't resolved yet (first load)
+  if (
+    previousEnvironmentRef.current !== undefined &&
+    previousEnvironmentRef.current !== currentEnvironmentId
+  ) {
+    navigate("/flags");
+  }
+  previousEnvironmentRef.current = currentEnvironmentId;
+}, [currentEnvironmentId, navigate]);
 
   const handleAddUserId = (e) => {
     e.preventDefault();

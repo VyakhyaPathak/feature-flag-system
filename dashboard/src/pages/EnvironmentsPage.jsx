@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Layers, Pencil, Trash2, Plus, X, ToggleLeft } from "lucide-react";
 import Dropdown from "../components/Dropdown";
 import { getErrorMessage, throwIfNotOk } from "../utils/apiErrors";
+import { useEnvironment } from "../context/EnvironmentContext";
 
 const API_BASE = "http://localhost:8000";
 

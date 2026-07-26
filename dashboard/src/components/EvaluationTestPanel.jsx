@@ -261,41 +261,47 @@ function EvaluationTestPanel({ flagKey, defaultEnvironmentId }) {
                   {JSON.stringify(result.request_summary, null, 2)}
                 </pre>
               </div>
-
-              {result.priority_check?.length > 0 && (
-                <div>
-                  <p className="text-xs text-gray-500 mb-2">Priority Check</p>
-                  <div className="space-y-1.5">
-                    {result.priority_check.map((item, idx) => {
-                      const meta = RULE_ICONS[item.rule] || {};
-                      const Icon = meta.icon;
-                      return (
-                        <div
-                          key={item.rule}
-                          className="flex items-center justify-between rounded-lg px-2.5 py-1.5"
-                          style={{ backgroundColor: item.status === "matched" ? "rgba(22,163,74,0.06)" : "transparent" }}
-                        >
-                          <span className="flex items-center gap-2 text-xs text-gray-700">
-                            <span
-                              className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-semibold text-white"
-                              style={{ backgroundColor: meta.color || "#9CA3AF" }}
-                            >
-                              {idx + 1}
-                            </span>
-                            {Icon && <Icon size={13} style={{ color: meta.color }} />}
-                            {item.label}
-                          </span>
-                          <StatusBadge status={item.status} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Priority Check now spans the FULL panel width (both columns above)
+          instead of being squeezed into just the results half - that half
+          was too narrow for labels like "Environment Override" once the
+          panel started reflowing at different widths. */}
+      {result?.priority_check?.length > 0 && (
+        <div className="mt-5">
+          <p className="text-xs text-gray-500 mb-2">Priority Check</p>
+          <div className="space-y-1.5">
+            {result.priority_check.map((item, idx) => {
+              const meta = RULE_ICONS[item.rule] || {};
+              const Icon = meta.icon;
+              return (
+                <div
+                  key={item.rule}
+                  className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5"
+                  style={{ backgroundColor: item.status === "matched" ? "rgba(22,163,74,0.06)" : "transparent" }}
+                >
+                  <span className="flex items-center gap-2 text-xs text-gray-700 min-w-0">
+                    <span
+                      className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-semibold text-white shrink-0"
+                      style={{ backgroundColor: meta.color || "#9CA3AF" }}
+                    >
+                      {idx + 1}
+                    </span>
+                    {Icon && <Icon size={13} className="shrink-0" style={{ color: meta.color }} />}
+                    <span className="truncate">{item.label}</span>
+                  </span>
+                  <span className="shrink-0">
+                    <StatusBadge status={item.status} />
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
