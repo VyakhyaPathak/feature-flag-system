@@ -6,7 +6,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.database import get_db
 from app import models, schemas
 from app.evaluation_engine import evaluate_flag
-from app.cache import get_cached_evaluation, set_cached_evaluation, invalidate_flag_cache
+from app.cache import get_cached_evaluation, set_cached_evaluation, invalidate_flag_cache, is_flag_cached
 
 router = APIRouter(prefix="/flags", tags=["Flags"])
 
@@ -56,6 +56,14 @@ def list_available_groups(db: Session = Depends(get_db)):
 def list_flag_keys(db: Session = Depends(get_db)):
     rows = db.query(models.Flag.key).distinct().all()
     return sorted({row[0] for row in rows})
+
+@router.get("/cache-status")
+def get_cache_status(keys: str):
+    """Given a comma-separated list of flag keys, returns which ones
+    currently have a live cached evaluation - purely a display concern
+    for the Flags table's Source badge."""
+    flag_keys = [k.strip() for k in keys.split(",") if k.strip()]
+    return {k: is_flag_cached(k) for k in flag_keys}
 
 
 def _get_canonical_flag(db: Session, flag_key: str) -> models.Flag:

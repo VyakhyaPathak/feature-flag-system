@@ -1,10 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
-import { Flag, Layers, ScrollText } from "lucide-react";
+import { LayoutDashboard, Flag, Layers, ScrollText } from "lucide-react";
 
 function Sidebar() {
   const location = useLocation();
 
   const navItems = [
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/flags", label: "Flags", icon: Flag },
     { to: "/environments", label: "Environments", icon: Layers },
     { to: "/audit-log", label: "Audit Log", icon: ScrollText },

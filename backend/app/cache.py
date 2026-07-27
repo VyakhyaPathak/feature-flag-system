@@ -54,3 +54,15 @@ def invalidate_flag_cache(flag_key: str):
                 break
     except Exception:
         pass
+
+def is_flag_cached(flag_key: str) -> bool:
+    """Returns True if at least one cached evaluation currently exists for
+    this flag (in any environment/user), False on a miss or any Redis
+    error. Used only for a display badge - never affects evaluation
+    control flow, so an error here should never surface as a 500."""
+    pattern = f"flag_eval:{flag_key}:*"
+    try:
+        _, keys = redis_client.scan(cursor=0, match=pattern, count=10)
+        return bool(keys)
+    except Exception:
+        return False

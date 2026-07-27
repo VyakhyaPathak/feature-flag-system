@@ -294,9 +294,9 @@ def test_full_demo_walkthrough_matches_milestone_slide(db, cleanup):
 
     r101 = client.post("/flags/evaluate", json={"flag_key": FLAG_KEY, "environment_id": PROD_ID, "user_id": "101"}).json()
     r555 = client.post("/flags/evaluate", json={"flag_key": FLAG_KEY, "environment_id": PROD_ID, "user_id": "555", "groups": ["beta_users"]}).json()
-    r777 = client.post("/flags/evaluate", json={"flag_key": FLAG_KEY, "environment_id": PROD_ID, "user_id": "777"}).json()
-    r888 = client.post("/flags/evaluate", json={"flag_key": FLAG_KEY, "environment_id": PROD_ID, "user_id": "888"}).json()
-    r999 = client.post("/flags/evaluate", json={"flag_key": FLAG_KEY, "environment_id": PROD_ID, "user_id": "999"}).json()
+    r777 = client.post("/flags/evaluate", json={"flag_key": FLAG_KEY, "environment_id": PROD_ID, "user_id": "777", "groups": []}).json()
+    r888 = client.post("/flags/evaluate", json={"flag_key": FLAG_KEY, "environment_id": PROD_ID, "user_id": "888", "groups": []}).json()
+    r999 = client.post("/flags/evaluate", json={"flag_key": FLAG_KEY, "environment_id": PROD_ID, "user_id": "999", "groups": []}).json()
 
     assert r101["value"] is True and r101["matched_rule"] == "user_whitelisted"
     assert r555["value"] is True and r555["matched_rule"] == "group_targeted"

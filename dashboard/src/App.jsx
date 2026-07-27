@@ -6,6 +6,7 @@ import FlagsPage from "./pages/FlagsPage";
 import FlagDetailPage from "./pages/FlagDetailPage";
 import EnvironmentsPage from "./pages/EnvironmentsPage";
 import AuditLogPage from "./pages/AuditLogPage";
+import DashboardPage from "./pages/DashboardPage";
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
             <Navbar />
             <Routes>
               <Route path="/" element={<Navigate to="/flags" replace />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/flags" element={<FlagsPage />} />
               <Route path="/flags/:flagId" element={<FlagDetailPage />} />
               <Route path="/environments" element={<EnvironmentsPage />} />

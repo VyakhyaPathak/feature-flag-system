@@ -3,6 +3,7 @@ import { Layers, Pencil, Trash2, Plus, X, ToggleLeft } from "lucide-react";
 import Dropdown from "../components/Dropdown";
 import { getErrorMessage, throwIfNotOk } from "../utils/apiErrors";
 import { useEnvironment } from "../context/EnvironmentContext";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const API_BASE = "http://localhost:8000";
 
@@ -105,6 +106,16 @@ function EnvironmentsTable({ environments, onCreate, onUpdate, onDelete }) {
   const [deletingId, setDeletingId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
+  const confirmTargetName = environments.find((e) => e.id === confirmDeleteId)?.name;
+
+  const runDelete = () => {
+    setDeletingId(confirmDeleteId);
+    onDelete(confirmDeleteId).finally(() => {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    });
+  };
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div
@@ -174,52 +185,32 @@ function EnvironmentsTable({ environments, onCreate, onUpdate, onDelete }) {
                   <StatusPill status={env.status} />
                 </td>
                 <td className="px-4 py-3">
-                  {confirmDeleteId === env.id ? (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-gray-500">Delete?</span>
-                      <button
-                        onClick={() => {
-                          setDeletingId(env.id);
-                          onDelete(env.id).finally(() => {
-                            setDeletingId(null);
-                            setConfirmDeleteId(null);
-                          });
-                        }}
-                        disabled={deletingId === env.id}
-                        className="font-medium hover:opacity-70 disabled:opacity-40"
-                        style={{ color: "var(--danger)" }}
-                      >
-                        {deletingId === env.id ? "Deleting..." : "Confirm"}
-                      </button>
-                      <button
-                        onClick={() => setConfirmDeleteId(null)}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => setEditingId(env.id)}
-                        className="text-gray-400 transition"
-                        onMouseEnter={(e) => (e.currentTarget.style.color = "#33539E")}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = "#9CA3AF")}
-                        title="Edit"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        onClick={() => setConfirmDeleteId(env.id)}
-                        className="text-gray-400 hover:text-white p-1 rounded-md transition"
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#A5678E") && (e.currentTarget.style.color = "white")}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent") && (e.currentTarget.style.color = "#9CA3AF")}
-                        title="Delete"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setEditingId(env.id)}
+                      className="text-gray-400 transition"
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#33539E")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "#9CA3AF")}
+                      title="Edit"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(env.id)}
+                      className="text-gray-400 hover:text-white p-1 rounded-md transition"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "#A5678E";
+                        e.currentTarget.style.color = "white";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "transparent";
+                        e.currentTarget.style.color = "#9CA3AF";
+                      }}
+                      title="Delete"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             )
@@ -233,6 +224,17 @@ function EnvironmentsTable({ environments, onCreate, onUpdate, onDelete }) {
           )}
         </tbody>
       </table>
+
+      {confirmDeleteId !== null && (
+        <ConfirmDialog
+          title="Delete this environment?"
+          message={`"${confirmTargetName}" will be permanently deleted. This cannot be undone.`}
+          confirmLabel="Delete"
+          busy={deletingId === confirmDeleteId}
+          onConfirm={runDelete}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
+      )}
     </div>
   );
 }

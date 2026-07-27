@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useEnvironment } from "../context/EnvironmentContext";
 import FlagFormModal from "../components/FlagFormModal";
 import ConfirmDialog from "../components/ConfirmDialog";
-import { ToggleRight, ToggleLeft, ListChecks, Search, Trash2 } from "lucide-react";
+import { ToggleRight, ToggleLeft, ListChecks, Search, Trash2, Zap } from "lucide-react";
 import { getErrorMessage } from "../utils/apiErrors";
 import { capitalize } from "../utils/format";
 
@@ -18,6 +18,19 @@ function FlagsPage() {
   const [toast, setToast] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [cacheStatus, setCacheStatus] = useState({});
+
+  const fetchCacheStatus = (list) => {
+    const keys = list.map((f) => f.key);
+    if (!keys.length) {
+      setCacheStatus({});
+      return;
+    }
+    fetch(`http://localhost:8000/flags/cache-status?keys=${encodeURIComponent(keys.join(","))}`)
+      .then((res) => res.json())
+      .then(setCacheStatus)
+      .catch(() => setCacheStatus({}));
+  };
 
   const fetchFlags = () => {
     if (environmentId == null) return;
@@ -30,8 +43,10 @@ function FlagsPage() {
         return data;
       })
       .then((data) => {
-        setFlags(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setFlags(list);
         setLoading(false);
+        fetchCacheStatus(list);
       })
       .catch((err) => {
         setFetchError(err.message || "Failed to load flags");
@@ -199,6 +214,7 @@ function FlagsPage() {
               <th className="px-6 py-3 font-medium">Key</th>
               <th className="px-6 py-3 font-medium">Type</th>
               <th className="px-6 py-3 font-medium">Status</th>
+              <th className="px-6 py-3 font-medium">Source</th>
               <th className="px-6 py-3 font-medium">Owner</th>
               <th className="px-6 py-3 font-medium text-right">Actions</th>
             </tr>
@@ -206,7 +222,7 @@ function FlagsPage() {
           <tbody>
             {filteredFlags.length === 0 ? (
               <tr>
-                <td colSpan="5" className="px-6 py-8 text-center text-gray-400 text-sm">
+                <td colSpan="6" className="px-6 py-8 text-center text-gray-400 text-sm">
                   {flags.length === 0
                     ? 'No flags in this environment yet. Click "+ Create Flag" to add one.'
                     : "No flags match your search."}
@@ -255,6 +271,23 @@ function FlagsPage() {
                         {flag.enabled ? "Live" : "Off"}
                       </span>
                     </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    {cacheStatus[flag.key] ? (
+                      <span
+                        className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: "rgba(22,163,74,0.1)", color: "#16A34A" }}
+                      >
+                        <Zap size={11} /> Cached
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: "rgba(51,83,158,0.1)", color: "#33539E" }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#33539E" }}></span> Live
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm">{flag.owner_team || "—"}</td>
                   <td className="px-6 py-4 text-right">
