@@ -44,6 +44,7 @@ class FlagResponse(FlagBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    rollout_percentage: Optional[int] = None  # Day 18: surfaced in the flags table so rollout is visible without an extra click
 
     class Config:
         from_attributes = True
@@ -191,3 +192,138 @@ class EvaluateResponse(BaseModel):
     # ---- Day 12: caching visibility ----
     source: str = "live"           # "live" | "cache"
     response_time_ms: float = 0.0
+
+    # ---- Day 14/15: Audit Log ----
+
+class AuditLogEntry(BaseModel):
+    id: int
+    actor: str
+    flag_id: Optional[int] = None
+    flag_key: Optional[str] = None
+    environment_id: Optional[int] = None
+    environment_name: Optional[str] = None
+    change_type: str
+    previous_state: Optional[Any] = None
+    new_state: Optional[Any] = None
+    details: Optional[str] = None
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AuditLogPage(BaseModel):
+    items: list[AuditLogEntry]
+    total: int
+    page: int
+    page_size: int
+
+
+# ---- Auth: registration, login, sessions ----
+
+class UserRegister(BaseModel):
+    email: str
+    password: str
+    full_name: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def email_must_look_like_email(cls, v):
+        v = (v or "").strip().lower()
+        if "@" not in v or "." not in v.split("@")[-1]:
+            raise ValueError("Enter a valid email address")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_min_length(cls, v):
+        if not v or len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    full_name: Optional[str] = None
+    role: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
+# ---- Day 16: Evaluation Analytics ----
+
+class AnalyticsPoint(BaseModel):
+    date: str   # "YYYY-MM-DD" - one bar in the chart
+    count: int
+
+
+class EvaluationAnalyticsResponse(BaseModel):
+    flag_key: str
+    days: int
+    total: int
+    avg_per_day: float
+    max_per_hour: int
+    max_per_hour_at: Optional[datetime] = None
+    last_evaluated: Optional[datetime] = None
+    change_pct: Optional[float] = None  # vs the previous equal-length period
+    points: list[AnalyticsPoint]
+
+
+# ---- Day 17: Flag Cleanup Tooling ----
+
+class CleanupEnvironmentState(BaseModel):
+    environment_id: int
+    environment_name: str
+    enabled: bool
+    rollout_percentage: int
+
+
+class CleanupCandidateEntry(BaseModel):
+    id: int
+    flag_key: str
+    status_type: str  # "ROLLED_OUT" | "DISABLED"
+    since_date: datetime
+    days_in_state: int
+    environments: list[CleanupEnvironmentState]
+    last_evaluated_at: Optional[datetime] = None
+    reviewed: bool
+    reviewed_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CleanupCandidatesPage(BaseModel):
+    items: list[CleanupCandidateEntry]
+    total: int
+    page: int
+    page_size: int
+    retention_threshold_days: int
+    total_candidates: int
+    fully_rolled_out_count: int
+    fully_disabled_count: int
+    reviewed_count: int
+
+
+class CleanupReviewRequest(BaseModel):
+    reviewed: bool = True
+
+
+class CleanupScanResult(BaseModel):
+    candidates_found: int
+    scanned_at: datetime

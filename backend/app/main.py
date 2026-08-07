@@ -7,6 +7,7 @@ import logging
 from app.routers import flags, environments
 from app.database import get_db
 from app.redis_client import redis_client
+from app.routers import flags, environments, audit_log, auth, cleanup
 
 logger = logging.getLogger("feature_flag_system")
 
@@ -22,6 +23,9 @@ app.add_middleware(
 
 app.include_router(flags.router)
 app.include_router(environments.router)
+app.include_router(audit_log.router)
+app.include_router(auth.router)
+app.include_router(cleanup.router)
 
 
 @app.exception_handler(Exception)

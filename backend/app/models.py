@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, TIMESTAMP, JSON, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, BigInteger, String, Boolean, ForeignKey, TIMESTAMP, JSON, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -71,13 +71,46 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
 
     id = Column(Integer, primary_key=True, index=True)
-    actor = Column(String(100), nullable=False)
-    flag_id = Column(Integer, ForeignKey("flags.id"), nullable=True)
+    actor = Column(String(100), nullable=False, index=True)
+    # Plain integer, NOT a ForeignKey - a flag can be deleted (and its audit
+    # trail is exactly what should survive that), so this column must never
+    # block or cascade a flag delete. flag_key below is the durable, always-
+    # readable identifier for display/filtering.
+    flag_id = Column(Integer, nullable=True)
+    flag_key = Column(String(100), nullable=True, index=True)          # Day 15
     environment_id = Column(Integer, ForeignKey("environments.id"), nullable=True)
-    change_type = Column(String(30), nullable=False)  # "created", "updated", "enabled", etc.
+    change_type = Column(String(30), nullable=False)  # "CREATE", "UPDATE", "ENABLE", "DISABLE", "DELETE"
     previous_state = Column(JSON, nullable=True)
     new_state = Column(JSON, nullable=True)
-    timestamp = Column(TIMESTAMP, server_default=func.now())
+    details = Column(Text, nullable=True)                              # Day 15: human-readable summary
+    timestamp = Column(TIMESTAMP, server_default=func.now(), index=True)
+
+
+# ---- Day 16: Evaluation Analytics ----
+
+class EvaluationAnalytics(Base):
+    __tablename__ = "evaluation_analytics"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    flag_key = Column(String(100), nullable=False, index=True)
+    hour_bucket = Column(TIMESTAMP, nullable=False, index=True)  # truncated to the hour, UTC
+    count = Column(BigInteger, nullable=False, default=0)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("flag_key", "hour_bucket", name="uq_evaluation_analytics_flag_hour"),
+    )
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(150), nullable=True)
+    role = Column(String(30), nullable=False, default="member")  # "admin" | "member"
+    created_at = Column(TIMESTAMP, server_default=func.now())
 
 
 # ---- Day 10: Environment-Specific Flag Overrides ----
@@ -96,3 +129,26 @@ class FlagOverride(Base):
     __table_args__ = (
         UniqueConstraint("flag_key", "environment_id", name="uq_flag_override_key_env"),
     )
+
+
+# ---- Day 17: Flag Cleanup Tooling ----
+
+class CleanupCandidate(Base):
+    """One row per flag_key that is currently fully rolled out (100% +
+    enabled) or fully disabled in every environment it's configured in.
+    Re-computed on every scan (see app/cleanup.py) - rows are upserted by
+    flag_key so `reviewed`/`reviewed_at`/`reviewed_by` survive a re-scan,
+    and rows that no longer qualify (someone changed the flag) are removed."""
+    __tablename__ = "cleanup_candidates"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    flag_key = Column(String(100), nullable=False, unique=True, index=True)
+    status_type = Column(String(20), nullable=False, index=True)  # "ROLLED_OUT" | "DISABLED"
+    since_date = Column(TIMESTAMP, nullable=False)   # last time this flag's state changed
+    days_in_state = Column(Integer, nullable=False, default=0)
+    environments = Column(JSON, nullable=False, default=list)  # [{environment_id, environment_name, enabled, rollout_percentage}]
+    last_evaluated_at = Column(TIMESTAMP, nullable=True)
+    reviewed = Column(Boolean, nullable=False, default=False)
+    reviewed_at = Column(TIMESTAMP, nullable=True)
+    reviewed_by = Column(String(100), nullable=True)
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
